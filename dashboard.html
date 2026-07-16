@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A Marketplace for Data Dashboard</title>
+  <style>
+    :root {
+      --bg: #f7f7f4;
+      --panel: #ffffff;
+      --text: #202124;
+      --muted: #666a70;
+      --line: #d8d9d2;
+      --a: #256f7a;
+      --b: #b35c1e;
+      --c: #6b6b9f;
+      --ok: #2c7a4b;
+      --bad: #aa3f3f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+    }
+    .app { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0 0 8px; font-size: 26px; font-weight: 600; }
+    p { margin: 0; color: var(--muted); line-height: 1.55; }
+    .controls, .metrics {
+      display: grid;
+      gap: 12px;
+      margin: 18px 0;
+    }
+    .controls { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+    .metrics { grid-template-columns: repeat(3, minmax(160px, 1fr)); }
+    label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+    input[type="range"] { width: 100%; }
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button.primary { background: var(--text); color: white; border-color: var(--text); }
+    .button-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .metric-label { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+    .metric-value { font-size: 24px; font-weight: 600; }
+    .status { font-size: 13px; margin-top: 6px; color: var(--muted); }
+    .status.good { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .wide { grid-column: 1 / -1; }
+    .chart-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 8px;
+    }
+    .chart-title h2 { font-size: 17px; font-weight: 600; margin: 0; }
+    .chart-note { color: var(--muted); font-size: 13px; }
+    svg { width: 100%; height: auto; display: block; }
+    .label { fill: var(--muted); font-size: 12px; }
+    .grid-line { stroke: var(--line); stroke-width: 1; }
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: right; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+    th:first-child, td:first-child { text-align: left; }
+    th { color: var(--muted); font-weight: 500; }
+    @media (max-width: 820px) {
+      header { display: block; }
+      .controls, .metrics, .grid { grid-template-columns: 1fr; }
+      .app { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>数据市场机制模拟</h1>
+        <p>前端只负责展示；AF/RF/PF/PD、Ground Truth 和诚实占优检验都由 Python 后端计算。</p>
+      </div>
+      <div class="button-row">
+        <button class="primary" id="run">重新模拟</button>
+        <button id="reset">默认参数</button>
+      </div>
+    </header>
+
+    <section class="controls" aria-label="模拟参数">
+      <label>买家数量 <span id="buyersText"></span>
+        <input id="buyers" type="range" min="20" max="240" step="10" value="120">
+      </label>
+      <label>低报比例 <span id="shadeText"></span>
+        <input id="shade" type="range" min="0.2" max="0.95" step="0.05" value="0.65">
+      </label>
+      <label>高报倍数 <span id="overText"></span>
+        <input id="over" type="range" min="1.05" max="2.2" step="0.05" value="1.4">
+      </label>
+      <label>复制惩罚 lambda <span id="lambdaText"></span>
+        <input id="lambda" type="range" min="0" max="2" step="0.05" value="0.7">
+      </label>
+    </section>
+
+    <section class="metrics">
+      <div class="card">
+        <div class="metric-label">诚实策略平均效用优势</div>
+        <div class="metric-value" id="truthGap">-</div>
+        <div class="status" id="truthStatus">等待后端结果</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">理论最优固定价格 p*</div>
+        <div class="metric-value" id="pStar">-</div>
+        <div class="status" id="priceStatus">MWU 价格线应向它靠近</div>
+      </div>
+      <div class="card">
+        <div class="metric-label">复制数据分成 / 原始数据分成</div>
+        <div class="metric-value" id="copyRatio">-</div>
+        <div class="status" id="copyStatus">等待后端结果</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="chart-title">
+          <h2>买家策略效用</h2>
+          <span class="chart-note">后端比较低报、诚实、高报</span>
+        </div>
+        <svg id="utilityChart" viewBox="0 0 520 280" role="img" aria-label="买家策略平均效用柱状图"></svg>
+      </div>
+
+      <div class="card">
+        <div class="chart-title">
+          <h2>复制惩罚</h2>
+          <span class="chart-note">Python robust PD 计算</span>
+        </div>
+        <svg id="shareChart" viewBox="0 0 520 280" role="img" aria-label="卖家收益份额柱状图"></svg>
+      </div>
+
+      <div class="card wide">
+        <div class="chart-title">
+          <h2>MWU 价格路径 vs Ground Truth</h2>
+          <span class="chart-note">虚线为闭式最优固定价格</span>
+        </div>
+        <svg id="priceChart" viewBox="0 0 1080 320" role="img" aria-label="乘法权重价格路径和理论最优价格折线图"></svg>
+        <div class="legend">
+          <span><span class="swatch" style="background: var(--a)"></span>MWU 动态价格</span>
+          <span><span class="swatch" style="background: var(--b)"></span>Ground Truth p*</span>
+        </div>
+      </div>
+
+      <div class="card wide">
+        <div class="chart-title">
+          <h2>关键数值</h2>
+          <span class="chart-note">数据来自 Python API</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>策略</th>
+              <th>平均报价</th>
+              <th>平均质量</th>
+              <th>平均支付</th>
+              <th>平均效用</th>
+            </tr>
+          </thead>
+          <tbody id="strategyTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const els = {
+      buyers: document.getElementById("buyers"),
+      shade: document.getElementById("shade"),
+      over: document.getElementById("over"),
+      lambda: document.getElementById("lambda"),
+      buyersText: document.getElementById("buyersText"),
+      shadeText: document.getElementById("shadeText"),
+      overText: document.getElementById("overText"),
+      lambdaText: document.getElementById("lambdaText"),
+      truthGap: document.getElementById("truthGap"),
+      truthStatus: document.getElementById("truthStatus"),
+      pStar: document.getElementById("pStar"),
+      priceStatus: document.getElementById("priceStatus"),
+      copyRatio: document.getElementById("copyRatio"),
+      copyStatus: document.getElementById("copyStatus"),
+      utilityChart: document.getElementById("utilityChart"),
+      shareChart: document.getElementById("shareChart"),
+      priceChart: document.getElementById("priceChart"),
+      strategyTable: document.getElementById("strategyTable"),
+      run: document.getElementById("run"),
+      reset: document.getElementById("reset")
+    };
+
+    const colors = {
+      low: "var(--c)",
+      truth: "var(--a)",
+      over: "var(--b)"
+    };
+
+    function fmt(x, d = 3) {
+      if (x === null || x === undefined || Number.isNaN(Number(x))) return "-";
+      return Number(x).toFixed(d);
+    }
+
+    function clear(svg) {
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+    }
+
+    function node(name, attrs = {}) {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", name);
+      for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+      return el;
+    }
+
+    function drawBars(svg, data, opts) {
+      clear(svg);
+      const W = opts.width;
+      const H = opts.height;
+      const m = { l: 54, r: 18, t: 18, b: 48 };
+      const maxV = Math.max(...data.map(d => d.value), 0.01) * 1.15;
+      const plotW = W - m.l - m.r;
+      const plotH = H - m.t - m.b;
+      [0, 0.5, 1].forEach(frac => {
+        const y = m.t + plotH * (1 - frac);
+        svg.appendChild(node("line", { x1: m.l, y1: y, x2: W - m.r, y2: y, class: "grid-line" }));
+        const t = node("text", { x: m.l - 8, y: y + 4, "text-anchor": "end", class: "label" });
+        t.textContent = fmt(maxV * frac, 2);
+        svg.appendChild(t);
+      });
+      const barW = plotW / data.length * 0.55;
+      data.forEach((d, i) => {
+        const x = m.l + (i + 0.5) * plotW / data.length - barW / 2;
+        const h = plotH * d.value / maxV;
+        const y = m.t + plotH - h;
+        svg.appendChild(node("rect", { x, y, width: barW, height: h, rx: 4, fill: d.color }));
+        const val = node("text", { x: x + barW / 2, y: y - 7, "text-anchor": "middle", class: "label" });
+        val.textContent = fmt(d.value, 3);
+        svg.appendChild(val);
+        const label = node("text", { x: x + barW / 2, y: H - 18, "text-anchor": "middle", class: "label" });
+        label.textContent = d.label;
+        svg.appendChild(label);
+      });
+    }
+
+    function drawLine(svg, prices, pStar) {
+      clear(svg);
+      const W = 1080;
+      const H = 320;
+      const m = { l: 54, r: 24, t: 20, b: 42 };
+      const plotW = W - m.l - m.r;
+      const plotH = H - m.t - m.b;
+      const maxY = Math.max(pStar, ...prices) * 1.15;
+      [0, 0.5, 1].forEach(frac => {
+        const y = m.t + plotH * (1 - frac);
+        svg.appendChild(node("line", { x1: m.l, y1: y, x2: W - m.r, y2: y, class: "grid-line" }));
+        const t = node("text", { x: m.l - 8, y: y + 4, "text-anchor": "end", class: "label" });
+        t.textContent = fmt(maxY * frac, 2);
+        svg.appendChild(t);
+      });
+      const xOf = i => m.l + (prices.length <= 1 ? 0 : i * plotW / (prices.length - 1));
+      const yOf = v => m.t + plotH * (1 - v / maxY);
+      const path = prices.map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(i).toFixed(2)} ${yOf(p).toFixed(2)}`).join(" ");
+      svg.appendChild(node("path", { d: path, fill: "none", stroke: "var(--a)", "stroke-width": 3 }));
+      const yStar = yOf(pStar);
+      svg.appendChild(node("line", { x1: m.l, y1: yStar, x2: W - m.r, y2: yStar, stroke: "var(--b)", "stroke-width": 2, "stroke-dasharray": "7 6" }));
+      const txt = node("text", { x: W - m.r, y: yStar - 8, "text-anchor": "end", class: "label" });
+      txt.textContent = `p*=${fmt(pStar, 3)}`;
+      svg.appendChild(txt);
+      svg.appendChild(node("circle", { cx: xOf(prices.length - 1), cy: yOf(prices[prices.length - 1]), r: 4, fill: "var(--a)" }));
+      const lx = node("text", { x: m.l, y: H - 14, class: "label" });
+      lx.textContent = "round 1";
+      svg.appendChild(lx);
+      const rx = node("text", { x: W - m.r, y: H - 14, "text-anchor": "end", class: "label" });
+      rx.textContent = `round ${prices.length}`;
+      svg.appendChild(rx);
+    }
+
+    function updateTexts() {
+      els.buyersText.textContent = els.buyers.value;
+      els.shadeText.textContent = fmt(els.shade.value, 2);
+      els.overText.textContent = fmt(els.over.value, 2);
+      els.lambdaText.textContent = fmt(els.lambda.value, 2);
+    }
+
+    async function loadSimulation() {
+      updateTexts();
+      const qs = new URLSearchParams({
+        buyers: els.buyers.value,
+        shade: els.shade.value,
+        overbid: els.over.value,
+        lambda: els.lambda.value
+      });
+      els.truthStatus.textContent = "正在请求 Python 后端...";
+      const res = await fetch(`/api/simulate?${qs.toString()}`);
+      if (!res.ok) throw new Error(`API failed: ${res.status}`);
+      const data = await res.json();
+      render(data);
+    }
+
+    function render(data) {
+      const pStar = data.ground_truth.price_star;
+      const truthGap = data.truth_gap;
+      const lastPrice = data.mwu_prices[data.mwu_prices.length - 1];
+      const copyRatio = data.seller_demo.copy_ratio;
+
+      els.truthGap.textContent = `${truthGap >= 0 ? "+" : ""}${fmt(truthGap, 4)}`;
+      els.truthStatus.textContent = truthGap >= -1e-8 ? "诚实报价为最高效用策略" : "当前参数下诚实策略未占优";
+      els.truthStatus.className = `status ${truthGap >= -1e-8 ? "good" : "bad"}`;
+      els.pStar.textContent = fmt(pStar, 3);
+      els.priceStatus.textContent = `最后一轮价格 ${fmt(lastPrice, 3)}，差距 ${fmt(Math.abs(lastPrice - pStar), 3)}`;
+      els.copyRatio.textContent = fmt(copyRatio, 3);
+      els.copyStatus.textContent = copyRatio <= 1 ? "复制数据没有超过原始数据分成" : "复制数据分成偏高";
+      els.copyStatus.className = `status ${copyRatio <= 1 ? "good" : "bad"}`;
+
+      drawBars(
+        els.utilityChart,
+        data.strategies.map(s => ({ label: s.label, value: s.avg_utility, color: colors[s.key] })),
+        { width: 520, height: 280 }
+      );
+      drawBars(
+        els.shareChart,
+        data.seller_demo.labels.map((label, i) => ({
+          label,
+          value: data.seller_demo.shares[i],
+          color: i === 0 ? "var(--a)" : i === 1 ? "var(--c)" : "var(--b)"
+        })),
+        { width: 520, height: 280 }
+      );
+      drawLine(els.priceChart, data.mwu_prices, pStar);
+      els.strategyTable.innerHTML = data.strategies.map(s => `
+        <tr>
+          <td>${s.label}</td>
+          <td>${fmt(s.avg_bid, 3)}</td>
+          <td>${fmt(s.avg_quality, 3)}</td>
+          <td>${fmt(s.avg_payment, 3)}</td>
+          <td>${fmt(s.avg_utility, 3)}</td>
+        </tr>
+      `).join("");
+    }
+
+    function showError(err) {
+      els.truthGap.textContent = "-";
+      els.truthStatus.textContent = `后端请求失败：${err.message}`;
+      els.truthStatus.className = "status bad";
+    }
+
+    els.run.addEventListener("click", () => loadSimulation().catch(showError));
+    els.reset.addEventListener("click", () => {
+      els.buyers.value = 120;
+      els.shade.value = 0.65;
+      els.over.value = 1.4;
+      els.lambda.value = 0.7;
+      loadSimulation().catch(showError);
+    });
+    [els.buyers, els.shade, els.over, els.lambda].forEach(el => {
+      el.addEventListener("input", () => loadSimulation().catch(showError));
+    });
+    loadSimulation().catch(showError);
+  </script>
+</body>
+</html>

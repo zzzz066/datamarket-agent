@@ -7,8 +7,8 @@
 --------
 mechanism/   核心机制（AF/RF/PF/PD）
 env/         环境层（规则环境 + Agent 封装）
-agents/      Agent 决策层（规则基线 + LLM Agent 基类）
-experiments/ 实验脚本与评估指标
+agents/      Agent 决策接口
+experiments/ 实验脚本
 """
 
 # 机制层
@@ -19,11 +19,11 @@ from .mechanism.core import (
     cosine_similarity_matrix,
     data_allocation_function,
     exact_shapley_values,
+    fit_linear_prediction,
     myerson_revenue_function,
     normalized_rmse_gain,
     robust_payment_division,
     shapley_approximation,
-    fit_linear_prediction,
     subset_linear_gain,
 )
 
@@ -31,15 +31,8 @@ from .mechanism.core import (
 from .env.base import Buyer, MarketplaceForDataEnv, Seller, StepResult
 from .env.wrapper import AgentMarketEnv
 
-# Agent 层
-from .agents.base import (
-    BaseAgent,
-    LLMAgent,
-    RuleBasedPlatformAgent,
-    TruthfulBuyerAgent,
-    ShadeBuyerAgent,
-    OverbidBuyerAgent,
-)
+# Agent 接口
+from .agents.base import BaseAgent
 
 __all__ = [
     # 机制
@@ -49,11 +42,11 @@ __all__ = [
     "cosine_similarity_matrix",
     "data_allocation_function",
     "exact_shapley_values",
+    "fit_linear_prediction",
     "myerson_revenue_function",
     "normalized_rmse_gain",
     "robust_payment_division",
     "shapley_approximation",
-    "fit_linear_prediction",
     "subset_linear_gain",
     # 环境
     "Buyer",
@@ -63,9 +56,4 @@ __all__ = [
     "AgentMarketEnv",
     # Agent
     "BaseAgent",
-    "LLMAgent",
-    "RuleBasedPlatformAgent",
-    "TruthfulBuyerAgent",
-    "ShadeBuyerAgent",
-    "OverbidBuyerAgent",
 ]

@@ -1,156 +1,164 @@
-# A Marketplace for Data 数值环境
+# 数据市场 Agent 模拟平台
 
-这个项目实现了 Agarwal, Dahleh, and Sarkar (2019) *A Marketplace for Data: An Algorithmic Solution* 的第一部分机制模拟。目标是把论文中的市场机制写成可运行的 Python 数值环境，并提供一个简单前端来观察：
+基于 Agarwal, Dahleh, and Sarkar (2019) *A Marketplace for Data: An Algorithmic Solution*
+实现的数据市场数值环境与 Agent 模拟系统。
 
-- 买家在 Myerson 支付规则下诚实报价是否占优。
-- 平台价格更新是否朝理论最优固定价格收敛。
-- Shapley 收益分配和相似度惩罚是否抑制复制数据。
-
-## 文件结构
+## 目录结构
 
 ```text
-marketplace_for_data/
-  mechanism.py      # AF / RF / PF / PD 和闭式 Ground Truth
-  env.py            # 平台、买家、卖家效用计算环境
-  demo.py           # Python 最小示例
-  dashboard.html    # 可视化前端，直接用浏览器打开
+marketplace_for_data_agent/
+├── mechanism/               # 论文四大机制实现
+│   └── core.py              # AF / RF / PF / PD + 闭式 Ground Truth
+├── env/                     # 环境层
+│   ├── base.py              # MarketplaceForDataEnv — 规则结算引擎
+│   └── wrapper.py           # AgentMarketEnv — Agent 决策封装
+├── agents/                  # Agent 接口
+│   └── base.py              # BaseAgent 抽象基类
+├── experiments/             # 实验脚本
+├── demo.py                  # 最小运行示例
+├── simulation.py            # Dashboard 后端
+├── server.py                # HTTP 服务
+└── dashboard.html           # 可视化前端
 ```
 
-## 论文机制到代码的对应
+## 论文机制 → 代码对应
 
-| 论文机制 | 代码 | 含义 |
-| --- | --- | --- |
-| `AF(p_n, b_n; X_M)` | `data_allocation_function` | 当 `b < p` 时退化数据；当 `b >= p` 时完整分配数据 |
-| `RF(p_n, b_n, Y_n)` | `myerson_revenue_function` | Myerson 支付：`b h(b) - integral_0^b h(z) dz` |
-| `PF` | `PriceUpdateState` | 对价格候选池做乘法权重更新 |
-| `PD` | `robust_payment_division` | Shapley 近似 + 余弦相似度指数惩罚 |
-| Ground Truth | `closed_form_ground_truth` | 简化质量曲线下的理论诚实报价和最优固定价格 |
+论文描述了一个数据市场，包含三种参与者（平台、买家、卖家）和四个机制组件：
 
-当前闭式解使用简化质量曲线：
+| 论文机制 | 代码实现 | 做了什么 |
+|---|---|---|
+| AF | `data_allocation_function(p, b, X)` | 买家报价 b ≥ 平台价格 p 时给完整数据；b < p 时加高斯噪声退化 |
+| RF | `myerson_revenue_function(p, b)` | Myerson 支付规则：b·h(b) − ∫₀ᵇ h(z)dz，保证诚实报价占优 |
+| PF | `PriceUpdateState` | 候选价格网格上的乘法权重（MWU）更新，平台实现无遗憾定价 |
+| PD | `robust_payment_division(revenue, X)` | Shapley 边际贡献 + 余弦相似度指数惩罚，抑制数据复制 |
+| GT | `closed_form_ground_truth(mus, …)` | 假设所有买家诚实 + 平台定最优价 p* 时的理论均衡基准 |
+
+## env 层的两层设计
+
+### base.py — 结算引擎
+
+`MarketplaceForDataEnv` 实现**一轮交易的完整结算**，不关心决策是谁做的：
+
+```python
+# 输入：买家 + 报价 + 价格
+result = env.step(buyer, bid=0.8, external_price=1.2)
+
+# 内部依次执行（与论文 Algorithm 1 完全对应）：
+# ① AF:   data_allocation_function(price, bid, X)   → 分配数据（可能加噪）
+# ② Gain: OLS 拟合 y，计算 1−RMSE 增益                → 衡量数据质量
+# ③ RF:   myerson_revenue_function(price, bid)       → 计算支付
+# ④ PD:   robust_payment_division(revenue, X)        → 分配给卖家
+# ⑤ PF:   price_state.update(bid)                    → 更新 MWU 权重
+
+# 输出：StepResult（价格、报价、增益、收入、三方效用、分配详情）
+```
+
+每一步的输入输出都是确定性的——给定相同的 `(price, bid, seller_features)`，结果完全可复现。
+
+### wrapper.py — Agent 决策封装
+
+`AgentMarketEnv` 在结算引擎外面包了一层**决策流控制**，把一轮拆成两个独立的决策点：
 
 ```text
-h_p(b) = min(b / p, 1)
+Round N:
+  ┌─ 该平台了 ─→ obs = get_obs("平台")  ─→ Agent 返回 {"价格": p}
+  │
+  ├─ 该买家了 ─→ obs = get_obs("买家")  ─→ Agent 返回 {"报价": b}
+  │
+  └─ 结算 ────→ base.step(buyer, bid=b, external_price=p) → 下一轮
 ```
 
-在这个设定下，Myerson 规则保证买家最优报价为：
+两种模式通过构造参数切换，不需要改代码：
 
-```text
-b* = mu
+| platform_mode | buyer_mode | 含义 |
+|---|---|---|
+| `"mwu"` | `"truthful"` | 纯规则基线（等于论文原版） |
+| `"mwu"` | `"agent"` | 只测买家 Agent |
+| `"agent"` | `"truthful"` | 只测平台 Agent |
+| `"agent"` | `"agent"` | 双方都是 Agent 博弈 |
+
+**规则模式下，wrapper 内部自动完成决策并跳过**，只有 `"agent"` 模式才会把观察暴露出来等待外部输入。
+
+### 观察翻译
+
+wrapper 的另一个职责是把内部状态（numpy 数组、StepResult 对象）翻译成 Agent 可读的 dict：
+
+**平台 Agent 看到：**
+```python
+{
+    "当前轮次": 5,
+    "总轮次": 120,
+    "候选价格": [0.1, 0.15, ..., 1.6],
+    "MWU权重": [0.008, 0.012, ...],    # 归一化概率
+    "MWU推荐价格": 0.8,                # argmax(权重)
+    "卖家数量": 3,
+    "最近历史": [{"价格": …, "报价": …, "平台收入": …}, ...],
+}
 ```
 
-也就是“诚实报价占优”。前端会直接比较三种策略：低报、诚实、高报。
+**买家 Agent 看到：**
+```python
+{
+    "当前轮次": 5,
+    "总轮次": 120,
+    "我的估值_mu": 0.8,
+    "当前平台价格": 0.7,
+    "我的历史": [{"报价": …, "效用": …, "增益": …}, ...],
+}
+```
 
-## 运行 Python 示例
+## 运行
 
-需要本机有 Python 和 NumPy：
+### 最小示例（验证机制层）
 
 ```powershell
 python -m marketplace_for_data_agent.demo
 ```
 
-输出会包含每轮价格、买家报价、收益、卖家分成，以及闭式 Ground Truth。
-
-## 启动 Python 后端和可视化前端
-
-现在前端通过 Python 后端获取模拟结果。启动服务：
+### Dashboard 可视化
 
 ```powershell
 python -m marketplace_for_data_agent.server
+# 浏览器打开 http://127.0.0.1:8000/
 ```
 
-然后打开：
+三张图分别验证：诚实报价占优、MWU 价格收敛、复制惩罚生效。
+
+### Agent 实验（Agent 开发者用）
+
+```python
+from marketplace_for_data_agent import AgentMarketEnv, BaseAgent
+
+class MyBuyer(BaseAgent):
+    def act(self, obs):
+        # obs 是上面的买家观察 dict
+        return {"报价": obs["我的估值_mu"]}  # 例如：诚实报价
+
+env = AgentMarketEnv(sellers, buyers, platform_mode="mwu", buyer_mode="agent")
+obs = env.reset()
+while not env.done:
+    if env.current_role == "平台":
+        obs = env.step("平台", {"价格": obs["MWU推荐价格"]})
+    elif env.current_role == "买家":
+        obs = env.step("买家", agent.act(obs))
+
+print(env.episode_summary())   # 累积效用
+print(env.ground_truth())      # 理论基准对照
+```
+
+## 机制性质
+
+在价格 p 外生给定的前提下，买家效用函数为：
 
 ```text
-http://127.0.0.1:8000/
+当 b < p:  U(b) = mu·b/p − b²/(2p)    → dU/db = (mu−b)/p → 最优 b=mu
+当 b ≥ p:  U(b) = mu − p/2             → 与 b 无关，报更高不会更好
 ```
 
-前端只负责展示和交互；下面这些结果都由 Python 后端计算：
+因此**单买家面对固定价格时，诚实报价 b=mu 是占优策略**。
 
-- 策略效用柱状图：低报、诚实、高报的买家平均效用。
-- 价格收敛折线：MWU 动态价格与理论最优固定价格 `p*`。
-- 复制惩罚柱状图：原始数据、无关数据、复制数据的收益份额。
-
-后端 API：
-
-```text
-GET /api/simulate?buyers=120&shade=0.65&overbid=1.4&lambda=0.7
-```
-
-如果机制实现正确，默认参数下应看到：
-
-```text
-诚实报价的平均买家效用最高或并列最高；
-MWU 价格逐步靠近 Ground Truth 的 p*；
-复制数据不会获得双倍分成，且会被相似度惩罚压低。
-```
-
-## 结果怎么读
-
-### 买家诚实占优
-
-买家真实估值是 `mu`。前端比较：
-
-- 低报：`b = shade * mu`
-- 诚实：`b = mu`
-- 高报：`b = overbid * mu`
-
-效用计算为：
-
-```text
-U_buyer = mu * h_p(b) - RF(p, b)
-```
-
-由于 `RF` 是 Myerson 支付，且 `h_p(b)` 单调，理论上 `b = mu` 是最优响应。图中“诚实”柱应最高。
-
-### 平台价格收敛
-
-平台维护一个价格候选池，对每个候选价格计算如果当轮使用该价格能获得多少收入，再用乘法权重更新。足够多轮后，动态价格应接近闭式 Ground Truth 中的最优固定价格。
-
-### 复制稳健性
-
-普通 Shapley 值会让复制数据获得额外分成。论文的 robust PD 使用：
-
-```text
-share_i = shapley_i * exp(-lambda * sum_j SM(X_i, X_j))
-```
-
-所以与已有数据高度相似的复制特征会被压低分成。
+但在动态博弈中，MWU 的价格更新 `weights[i] *= 1 + delta·RF(cᵢ, b)` 意味着：
+买家如果集体低报，MWU 感知到的收入变低，权重向低价偏移，后续价格下降。
 
 
-价格现在由 Python 后端的 MWU 乘法权重算法生成，代码在 marketplace_for_data/simulation.py。
-
-  核心逻辑是：
-
-  candidates = np.arange(lower, upper + 0.5 * step, step)
-  weights = np.ones_like(candidates)
-
-  也就是先生成一组候选价格，例如默认：
-
-  0.10, 0.15, 0.20, ..., 1.60
-
-  每一轮来一个买家，买家的真实估值是 mu。平台当前价格取“权重最高”的候选价格：
-
-  idx = int(np.argmax(weights))
-  p_now = candidates[idx]
-
-  然后后端会假设：如果这一轮分别使用每个候选价格，会从该买家那里收到多少 Myerson 收入：
-
-  gain_i = RF(candidate_price_i, mu) / upper_price
-
-  再用乘法权重更新：
-
-  weights[i] *= 1 + delta * gain_i
-
-  收入越高的候选价格，权重涨得越快。下一轮平台就更可能选择它。
-
-  所以价格路径不是随机生成的，而是由历史买家估值和每个候选价格的收入表现逐步推出来的。
-
-  当前前端里为了让曲线稳定、容易解释，使用的是确定性版本：
-
-  当前价格 = 权重最大的候选价格
-
-  论文 Algorithm 1 原版是按权重概率随机抽一个价格：
-
-  p_n = c_i with probability w_i / W
-
-  如果要更贴近论文，可以把 argmax(weights) 改成按 weights / sum(weights) 随机采样。
+详见 `INTERFACE.md`。

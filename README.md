@@ -129,6 +129,33 @@ LLM Agent 的动作最终会被规范化为环境需要的格式：
 {"报价": 1.2}   # 买家 Agent
 ```
 
+### Prompt profiles
+
+`LLMAgent` 支持通过 `prompt_profile` 切换实验人格/目标函数，便于比较不同 prompt 设计对市场结果的影响：
+
+| profile | 适用角色 | 含义 |
+|---|---|---|
+| `balanced` | 平台/买家 | 默认设置，兼顾理论基线、历史经验和风险 |
+| `strategic` | 平台/买家 | 允许考虑当前动作对未来价格轨迹的影响 |
+| `welfare` | 平台/买家 | 更关注市场总福利和长期稳定 |
+| `risk_averse` | 平台/买家 | 更保守，优先避免负效用或极端动作 |
+| `truthful` | 买家 | 强调诚实报价 `b=mu` 作为基线 |
+| `shade` | 买家 | 允许适度低报，观察动态压价效应 |
+| `revenue_max` | 平台 | 更强调平台收入和平台效用 |
+| `fairness_aware` | 平台 | 同时关注买家效用和卖家参与激励 |
+
+默认 prompt 包含四部分：角色目标、信息边界、机制说明、JSON 输出 schema。每轮 user prompt 会注入当前观察和短期记忆，要求模型只输出 JSON，例如：
+
+```json
+{"reasoning": "参考历史报价和MWU推荐价，选择稳健价格", "价格": 0.8}
+```
+
+买家输出：
+
+```json
+{"reasoning": "固定价格下诚实报价接近理论最优", "报价": 0.8}
+```
+
 ## 配置环境
 
 推荐使用 conda 单独建环境：
@@ -266,8 +293,8 @@ LLM Agent 示例，需要先设置 `OPENAI_API_KEY`：
 from datamarket_agent import AgentMarketEnv
 from datamarket_agent.agents import LLMAgent
 
-platform_agent = LLMAgent(model="gpt-4o-mini", role="平台")
-buyer_agent = LLMAgent(model="gpt-4o-mini", role="买家")
+platform_agent = LLMAgent(model="gpt-4o-mini", role="平台", prompt_profile="revenue_max")
+buyer_agent = LLMAgent(model="gpt-4o-mini", role="买家", prompt_profile="strategic")
 
 env = AgentMarketEnv(sellers, buyers, platform_mode="agent", buyer_mode="agent")
 obs = env.reset()

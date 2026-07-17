@@ -272,6 +272,7 @@ class LLMAgent(BaseAgent):
     model: str = "gpt-4o-mini"
     role: Optional[str] = None
     system_prompt: Optional[str] = None
+    prompt_profile: str = "balanced"
     client: Optional[ChatClient] = None
     parser: ActionParser = field(default_factory=ActionParser)
     temperature: float = 0.2
@@ -317,14 +318,14 @@ class LLMAgent(BaseAgent):
         raise AgentActionParseError(f"LLM Agent 生成动作失败: {last_error}")
 
     def _build_messages(self, obs: Mapping[str, Any], role: str) -> List[Message]:
-        system = self.system_prompt or default_system_prompt(role)
+        system = self.system_prompt or default_system_prompt(role, profile=self.prompt_profile)
         user = {
             "role": "user",
-            "content": (
-                f"当前角色: {role}\n"
-                f"最近记忆: {json.dumps(self._memory[-self.memory_size:], ensure_ascii=False)}\n"
-                f"当前观察: {json.dumps(obs, ensure_ascii=False)}\n\n"
-                f"请先在 reasoning 字段中用一句话说明策略，再输出动作字段。"
+            "content": default_user_prompt(
+                role,
+                obs,
+                self._memory[-self.memory_size:],
+                profile=self.prompt_profile,
             ),
         }
         return [{"role": "system", "content": system}, user]
@@ -348,22 +349,107 @@ class LLMAgent(BaseAgent):
             del self._memory[: len(self._memory) - self.memory_size]
 
 
-def default_system_prompt(role: str) -> str:
+def default_system_prompt(role: str, *, profile: str = "balanced") -> str:
+    """Return the role-aware system prompt used by ``LLMAgent``.
+
+    ``profile`` is an experiment knob rather than a parser requirement.  It lets
+    the same market environment compare truthful, strategic, welfare-aware,
+    risk-averse, revenue-maximizing, and fairness-aware LLM agents.
+    """
+    schema = json.dumps(output_schema_for_role(role), ensure_ascii=False)
+    mechanism = (
+        "市场机制: 平台先选择价格 p，买家随后提交报价 b。"
+        "若 b >= p，买家通常获得完整数据；若 b < p，数据会被加噪或遮蔽，质量下降。"
+        "支付由 Myerson 规则计算；固定价格下，买家诚实报价 b=mu 是理论基线。"
+        "平台价格状态由 MWU 根据历史报价和收入更新，短期动作可能影响后续价格路径。"
+    )
     if role == "平台":
         return (
-            "你是数据市场的平台定价 Agent。目标是在保证市场可持续的同时最大化平台效用。"
-            "你会看到候选价格、MWU 推荐价格和最近交易历史。"
-            "请参考 MWU 推荐，但也可以根据历史报价、收入和买家效用做机制引导的调整。"
-            "必须只输出 JSON 对象，字段包含 reasoning 和 价格；价格必须是数字。"
+            "你是一个 Agent-based Modeling 数据市场中的平台定价 Agent。"
+            "你的可见信息只包括当前观察里的候选价格、MWU 推荐价格、卖家数量和最近交易历史；"
+            "不要假设观察中没有给出的买家私有估值。"
+            "你的主要目标是在多轮交易中提高平台效用和收入，同时避免价格剧烈波动导致买家长期退出。"
+            f"{mechanism}"
+            f"{profile_guidance(role, profile)}"
+            "决策时先比较 MWU 推荐价格、最近成交报价、平台收入和买家效用，再选择一个有效价格。"
+            f"输出必须是一个 JSON 对象，schema 示例: {schema}。不要输出 Markdown、代码块或额外解释。"
         )
     if role == "买家":
         return (
-            "你是数据市场的买家 Agent。你的私有估值是 mu，目标是最大化自身效用。"
-            "机制中较高报价通常得到更高质量数据，但支付也会增加；固定价格下诚实报价 b=mu 是理论基线。"
-            "动态市场里报价还可能影响未来价格，请结合自己的历史进行策略判断。"
-            "必须只输出 JSON 对象，字段包含 reasoning 和 报价；报价必须是非负数字。"
+            "你是一个 Agent-based Modeling 数据市场中的买家 Agent。"
+            "你的可见信息只包括当前观察里的自己的估值 mu、当前平台价格和自己的历史；"
+            "你看不到其他买家的估值、策略或未来动作。"
+            "你的主要目标是在多轮交易中最大化自身效用，效用约为 mu * 数据质量 - 支付。"
+            f"{mechanism}"
+            f"{profile_guidance(role, profile)}"
+            "决策时比较诚实报价、低报节省支付、高报获得完整数据这三类选择的收益和风险。"
+            f"输出必须是一个 JSON 对象，schema 示例: {schema}。不要输出 Markdown、代码块或额外解释。"
         )
     raise ValueError(f"未知角色: {role}")
+
+
+def default_user_prompt(
+    role: str,
+    obs: Mapping[str, Any],
+    memory: Sequence[Mapping[str, Any]],
+    *,
+    profile: str = "balanced",
+) -> str:
+    schema = json.dumps(output_schema_for_role(role), ensure_ascii=False)
+    return (
+        f"当前角色: {role}\n"
+        f"Prompt profile: {profile}\n"
+        f"信息边界: {observation_contract(role)}\n"
+        f"输出 JSON schema: {schema}\n"
+        f"最近记忆(JSON): {json.dumps(list(memory), ensure_ascii=False)}\n"
+        f"当前观察(JSON): {json.dumps(obs, ensure_ascii=False)}\n\n"
+        "请按以下步骤在内部做判断，但最终只输出 JSON: "
+        "1. 识别当前价格/估值/历史趋势；"
+        "2. 判断本轮动作对效用、收入、数据质量和后续价格的影响；"
+        "3. 选择一个数字动作，并在 reasoning 中用一句话说明依据。"
+    )
+
+
+def output_schema_for_role(role: str) -> Dict[str, Any]:
+    if role == "平台":
+        return {"reasoning": "一句话说明定价依据", "价格": 0.8}
+    if role == "买家":
+        return {"reasoning": "一句话说明报价依据", "报价": 0.8}
+    raise ValueError(f"未知角色: {role}")
+
+
+def observation_contract(role: str) -> str:
+    if role == "平台":
+        return "只能使用候选价格、MWU权重/MWU推荐价格、卖家数量和最近历史，不知道当前买家的真实估值。"
+    if role == "买家":
+        return "只能使用自己的估值mu、当前平台价格和自己的历史，不知道其他买家或卖家的私有信息。"
+    raise ValueError(f"未知角色: {role}")
+
+
+def profile_guidance(role: str, profile: str) -> str:
+    normalized = profile.lower().strip()
+    common = {
+        "balanced": "Profile: balanced。兼顾理论基线、历史经验和风险，不要因为单轮异常值做极端动作。",
+        "strategic": "Profile: strategic。允许考虑当前动作对未来价格轨迹的影响，但仍需避免明显负效用或无效交易。",
+        "welfare": "Profile: welfare。优先考虑市场总福利和长期稳定，避免只让单方收益极端化。",
+        "risk_averse": "Profile: risk_averse。偏好稳健动作，优先降低负效用、过高支付或过高价格导致的风险。",
+    }
+    platform_only = {
+        "revenue_max": "Profile: revenue_max。优先最大化平台收入和平台效用，可参考 MWU 推荐并适度提高价格试探支付意愿。",
+        "fairness_aware": "Profile: fairness_aware。除平台收入外，也关注买家效用和卖家参与激励，避免长期压低某一方收益。",
+    }
+    buyer_only = {
+        "truthful": "Profile: truthful。将诚实报价 b=mu 作为强基线；除非历史显示明显风险，否则不要策略性偏离。",
+        "shade": "Profile: shade。可以适度低报以节省支付并观察价格反馈，但不能忽视数据质量下降和负效用风险。",
+    }
+    if normalized in common:
+        return common[normalized]
+    if role == "平台" and normalized in platform_only:
+        return platform_only[normalized]
+    if role == "买家" and normalized in buyer_only:
+        return buyer_only[normalized]
+    supported = sorted(set(common) | (set(platform_only) if role == "平台" else set(buyer_only)))
+    raise ValueError(f"未知 prompt profile: {profile!r}，{role} 支持: {supported}")
 
 
 def infer_role_from_obs(obs: Optional[Mapping[str, Any]]) -> str:
@@ -448,6 +534,10 @@ __all__ = [
     "ShadeBuyerAgent",
     "TruthfulBuyerAgent",
     "default_system_prompt",
+    "default_user_prompt",
+    "observation_contract",
+    "output_schema_for_role",
+    "profile_guidance",
     "fallback_action",
     "infer_role_from_obs",
 ]

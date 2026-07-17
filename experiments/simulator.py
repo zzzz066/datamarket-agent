@@ -44,7 +44,6 @@ class EpisodeRunResult:
     steps: list[EpisodeStepLog]
     final_reward: Dict[str, Any]
     summary: Dict[str, Any]
-    ground_truth: Dict[str, Any]
 
 
 def _call_agent(agent: AgentLike, obs: Dict[str, Any]) -> Dict[str, Any]:
@@ -138,7 +137,6 @@ def run_episode(
         steps=steps,
         final_reward=final_reward,
         summary=env.episode_summary(),
-        ground_truth=env.ground_truth(),
     )
 
 
@@ -158,7 +156,6 @@ def episode_to_dict(result: EpisodeRunResult) -> Dict[str, Any]:
         ],
         "final_reward": result.final_reward,
         "summary": result.summary,
-        "ground_truth": result.ground_truth,
     }
 
 

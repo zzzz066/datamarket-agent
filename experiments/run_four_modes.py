@@ -157,7 +157,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--mu-mode",
         choices=["linspace", "random", "cycle"],
-        default="linspace",
+        default="random",
         help="买家估值 mu 的生成方式。",
     )
     parser.add_argument("--mu-low", type=float, default=0.3)

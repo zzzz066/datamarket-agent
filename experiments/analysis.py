@@ -1,7 +1,7 @@
 """Module 4: 实验结果分析工具。
 
 本模块只做数值整理和表格输出：
-1. 计算实验效用与理论基准之间的 Utility Gap。
+1. 以 all_rule 规则组作为基准，计算各实验模式的 Utility Gap。
 2. 计算 Pass@epsilon。
 3. 生成模式汇总表和逐轮轨迹表，供报告与画图脚本使用。
 """
@@ -21,25 +21,17 @@ from .simulator import EpisodeRunResult, episode_to_dict
 
 @dataclass(frozen=True)
 class UtilityGapReport:
-    """单个实验模式相对理论基准的效用差距。"""
+    """单个实验模式相对规则基准组的效用差距。"""
 
     label: str
+    reference_label: str
     platform_utility: float
-    platform_gt: float
+    platform_baseline: float
     platform_gap: float
     buyer_average_utility: float
-    buyer_average_gt: float
+    buyer_average_baseline: float
     buyer_average_gap: float
     pass_epsilon: bool
-
-
-def _mean(values: Any) -> float:
-    """安全计算均值，空列表返回 0。"""
-
-    arr = np.asarray(values, dtype=float).reshape(-1)
-    if arr.size == 0:
-        return 0.0
-    return float(np.mean(arr))
 
 
 def _number(value: Any) -> float:
@@ -59,42 +51,51 @@ def _lookup_number(data: Mapping[str, Any], *keys: str) -> float:
     return 0.0
 
 
-def _lookup_list(data: Mapping[str, Any], *keys: str) -> Any:
-    """按候选键读取列表，找不到则返回空列表。"""
+def _reference_result(
+    results: Mapping[str, EpisodeRunResult],
+    reference_mode: str,
+) -> tuple[str, EpisodeRunResult]:
+    """读取基准组；默认使用 all_rule，不存在时退回第一组结果。"""
 
-    for key in keys:
-        if key in data:
-            return data[key]
-    return []
+    if reference_mode in results:
+        return reference_mode, results[reference_mode]
+    if not results:
+        raise ValueError("results 不能为空。")
+    name = next(iter(results))
+    return name, results[name]
 
 
 def utility_gap(
     result: EpisodeRunResult,
+    reference: EpisodeRunResult,
     *,
     label: str = "experiment",
+    reference_label: str = "all_rule",
     epsilon: float = 0.05,
 ) -> UtilityGapReport:
-    """计算单个 episode 与理论 Ground Truth 的效用差距。
+    """计算单个 episode 相对规则基准组的效用差距。
 
-    Utility Gap = 理论效用 - 实验效用。
+    Utility Gap = 基准组效用 - 当前实验效用。
+    因此 all_rule 自身的 gap 应为 0。
     """
 
     summary = result.summary
-    gt = result.ground_truth
+    ref_summary = reference.summary
     platform_utility = _lookup_number(summary, "平台总效用")
-    platform_gt = _lookup_number(gt, "平台理论效用")
+    platform_baseline = _lookup_number(ref_summary, "平台总效用")
     buyer_avg = _lookup_number(summary, "买家平均效用")
-    buyer_gt_avg = _mean(_lookup_list(gt, "买家理论效用"))
-    platform_gap = platform_gt - platform_utility
-    buyer_gap = buyer_gt_avg - buyer_avg
+    buyer_baseline_avg = _lookup_number(ref_summary, "买家平均效用")
+    platform_gap = platform_baseline - platform_utility
+    buyer_gap = buyer_baseline_avg - buyer_avg
     pass_epsilon = abs(platform_gap) <= epsilon and abs(buyer_gap) <= epsilon
     return UtilityGapReport(
         label=label,
+        reference_label=reference_label,
         platform_utility=platform_utility,
-        platform_gt=platform_gt,
+        platform_baseline=platform_baseline,
         platform_gap=float(platform_gap),
         buyer_average_utility=buyer_avg,
-        buyer_average_gt=buyer_gt_avg,
+        buyer_average_baseline=buyer_baseline_avg,
         buyer_average_gap=float(buyer_gap),
         pass_epsilon=bool(pass_epsilon),
     )
@@ -116,24 +117,33 @@ def make_summary_table(
     results: Mapping[str, EpisodeRunResult],
     *,
     epsilon: float = 0.05,
+    reference_mode: str = "all_rule",
 ) -> list[Dict[str, Any]]:
     """生成模式级汇总表。
 
-    每一行对应一种实验模式，用于比较平台效用、买家效用和 Utility Gap。
+    每一行对应一种实验模式，用于比较平台效用、买家效用和相对规则基准的 Utility Gap。
     """
 
+    ref_name, ref_result = _reference_result(results, reference_mode)
     table = []
     for name, result in results.items():
-        report = utility_gap(result, label=name, epsilon=epsilon)
+        report = utility_gap(
+            result,
+            ref_result,
+            label=name,
+            reference_label=ref_name,
+            epsilon=epsilon,
+        )
         table.append(
             {
                 "mode": name,
+                "reference_mode": ref_name,
                 "rounds": int(_lookup_number(result.summary, "总轮次")),
                 "platform_utility": report.platform_utility,
-                "platform_gt": report.platform_gt,
+                "platform_baseline": report.platform_baseline,
                 "platform_gap": report.platform_gap,
                 "buyer_average_utility": report.buyer_average_utility,
-                "buyer_average_gt": report.buyer_average_gt,
+                "buyer_average_baseline": report.buyer_average_baseline,
                 "buyer_average_gap": report.buyer_average_gap,
                 "pass_epsilon": report.pass_epsilon,
             }
@@ -199,27 +209,41 @@ def compare_experiments(
     results: Mapping[str, EpisodeRunResult],
     *,
     epsilon: float = 0.05,
+    reference_mode: str = "all_rule",
 ) -> Dict[str, Any]:
     """汇总多组实验，返回可 JSON 序列化的比较结果。"""
 
+    ref_name, ref_result = _reference_result(results, reference_mode)
     reports = {
-        name: utility_gap(result, label=name, epsilon=epsilon)
+        name: utility_gap(
+            result,
+            ref_result,
+            label=name,
+            reference_label=ref_name,
+            epsilon=epsilon,
+        )
         for name, result in results.items()
     }
     return {
         "epsilon": float(epsilon),
+        "reference_mode": ref_name,
         "pass_at_epsilon": pass_at_epsilon(reports, epsilon=epsilon),
-        "summary_table": make_summary_table(results, epsilon=epsilon),
+        "summary_table": make_summary_table(
+            results,
+            epsilon=epsilon,
+            reference_mode=reference_mode,
+        ),
         "step_table": make_step_table(results),
         "chart_payload": make_chart_payload(results),
         "reports": {
             name: {
                 "label": report.label,
+                "reference_label": report.reference_label,
                 "platform_utility": report.platform_utility,
-                "platform_gt": report.platform_gt,
+                "platform_baseline": report.platform_baseline,
                 "platform_gap": report.platform_gap,
                 "buyer_average_utility": report.buyer_average_utility,
-                "buyer_average_gt": report.buyer_average_gt,
+                "buyer_average_baseline": report.buyer_average_baseline,
                 "buyer_average_gap": report.buyer_average_gap,
                 "pass_epsilon": report.pass_epsilon,
             }
@@ -233,6 +257,7 @@ def save_analysis(
     output_dir: str | Path,
     *,
     epsilon: float = 0.05,
+    reference_mode: str = "all_rule",
 ) -> Dict[str, str]:
     """保存实验原始结果、分析 JSON 和 CSV 表格。"""
 
@@ -251,9 +276,22 @@ def save_analysis(
             indent=2,
         )
     with analysis_path.open("w", encoding="utf-8") as f:
-        json.dump(compare_experiments(results, epsilon=epsilon), f, ensure_ascii=False, indent=2)
+        json.dump(
+            compare_experiments(
+                results,
+                epsilon=epsilon,
+                reference_mode=reference_mode,
+            ),
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
 
-    summary_rows = make_summary_table(results, epsilon=epsilon)
+    summary_rows = make_summary_table(
+        results,
+        epsilon=epsilon,
+        reference_mode=reference_mode,
+    )
     step_rows = make_step_table(results)
     if summary_rows:
         with summary_csv_path.open("w", encoding="utf-8-sig", newline="") as f:

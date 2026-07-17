@@ -7,6 +7,7 @@
 \documentclass[10pt,aspectratio=169]{beamer}
 \usepackage{zju_beamer}
 \usepackage{booktabs}
+\usepackage{array}
 \usetikzlibrary{positioning}
 \graphicspath{{./figures/}}
 
@@ -16,7 +17,7 @@
 % 首页信息
 % ============================================================
 \title[数据市场 Agent 模拟]{基于 Agent 的数据市场机制模拟与改进}
-\subtitle{：A Marketplace for Data: An Algorithmic Solution}
+\subtitle{A Marketplace for Data: An Algorithmic Solution}
 \author[]{杨馨懿\ 郑伊霞\ 周首航}
 \date{\today}
 
@@ -269,21 +270,128 @@
 	\end{center}
 \end{frame}
 
-% ============================================================
-% Section 4: 已完成的模拟内容 (待填写)
-% ============================================================
-\section{已完成的模拟内容}
+
+
+\section{模拟实验及结果}
 
 \begin{frame}
-	\frametitle{已完成的模拟内容}
+  \frametitle{实验流程}
+  \begin{block}{模块定位}
+    负责把市场机制环境与外部 Agent 接口组织成可重复运行的多轮实验。
+  \end{block}
 
-	\begin{center}
-		\vspace{2cm}
-		{\Large \color{black!50}（待填写）}
+  \vspace{0.25cm}
+  交易轮数由买家序列长度决定：
+  \[
+    \texttt{total\_rounds}=\texttt{len(buyers)}
+  \]
 
-		\vspace{1cm}
-		\textit{--- 机制层实现、环境层搭建、基线实验结果等 ---}
-	\end{center}
+  \vspace{0.25cm}
+  一个 episode 表示一段连续交易过程：
+  \begin{itemize}
+    \item 卖家数据池在实验开始前固定；
+    \item 买家按照预设序列依次进入市场；
+    \item 每一轮中，平台先定价，当前买家再报价；
+    \item 底层 AF/RF/PD/PF 完成结算与价格状态更新；
+    \item 实验系统记录该轮结果并进入下一轮。
+  \end{itemize}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{四种实验模式}
+  为比较规则机制与 Agent 决策的影响，实验设计四种模式。
+
+  \vspace{0.25cm}
+  \begin{center}
+    \begin{tabular}{>{\centering\arraybackslash}p{2.8cm}
+                    >{\centering\arraybackslash}p{3.0cm}
+                    >{\centering\arraybackslash}p{2.6cm}
+                    p{4.0cm}}
+      \toprule
+      模式 & 平台/卖方定价侧 & 买家侧 & 实验目的 \\
+      \midrule
+      \texttt{all\_rule} & MWU 规则 & 诚实报价规则 & 作为规则基准组 \\
+      \texttt{seller\_agent} & Agent & 诚实报价规则 & 测试平台 Agent 定价影响 \\
+      \texttt{buyer\_agent} & MWU 规则 & Agent & 测试买家 Agent 报价影响 \\
+      \texttt{both\_agent} & Agent & Agent & 测试双边 Agent 交互效果 \\
+      \bottomrule
+    \end{tabular}
+  \end{center}
+
+\end{frame}
+
+\begin{frame}
+  \frametitle{信息控制}
+  实验提供统一接口：
+  \[
+    \texttt{agent.act(obs)} \rightarrow \texttt{action}
+  \]
+
+  \vspace{0.25cm}
+  观测信息按角色构造：
+  \begin{itemize}
+    \item 平台侧可见当前轮次、总轮次、候选价格、卖家数量、最近历史；
+    \item 买家侧可见当前轮次、总轮次、自身估值 $\mu$、当前价格、自身历史；
+  \end{itemize}
+
+  \vspace{0.25cm}
+  当前可被 Agent 接管的两个决策点：
+  \begin{itemize}
+    \item 平台侧定价：\texttt{\{"价格": p\}}
+    \item 买家侧报价：\texttt{\{"报价": b\}}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{实验记录与模块输出}
+  每次外部 Agent 决策都会记录一条 step 日志：
+  \[
+    \{\texttt{role},\ \texttt{observation},\ \texttt{action},\ \texttt{reward}\}
+  \]
+
+  \vspace{0.3cm}
+  episode 结束后输出 \texttt{EpisodeRunResult}：
+  \begin{itemize}
+    \item \texttt{steps}：逐轮决策日志，用于分析价格、报价和效用轨迹；
+    \item \texttt{final\_reward}：最后一轮交易反馈；
+    \item \texttt{summary}：整个 episode 的累计效用统计。
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{分析目标}
+  \begin{block}{核心问题}
+    Agent 接入后，市场结果相对规则基准组发生了怎样的变化？
+  \end{block}
+
+  \vspace{0.3cm}
+  数据分析主要比较：
+  \begin{itemize}
+    \item 不同模式下的平台总效用；
+    \item 不同模式下的买家平均效用；
+    \item Agent 是否改变价格、报价、数据增益和平台收入的动态轨迹。
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{基准组与指标定义}
+  以下分析以 \texttt{all\_rule} 作为基准组：
+  \[
+    \texttt{all\_rule}=\text{MWU 定价}+\text{买家诚实报价}
+  \]
+
+  \vspace{0.3cm}
+  Utility Gap 定义为：
+  \[
+    \text{Utility Gap}=\text{规则基准组效用}-\text{当前模式效用}
+  \]
+
+  Pass@epsilon 用于判断某个模式是否足够接近规则基准组：
+  \[
+    |\texttt{platform\_gap}| \leq \epsilon,\quad
+    |\texttt{buyer\_average\_gap}| \leq \epsilon
+  \]
 \end{frame}
 
 % ============================================================

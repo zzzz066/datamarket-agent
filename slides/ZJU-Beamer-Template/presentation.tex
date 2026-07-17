@@ -405,35 +405,105 @@
 	\end{columns}
 \end{frame}
 
+
 \begin{frame}
-    \frametitle{Prompt 示例：平台与买家 Agent}
+    \frametitle{Prompt 示例一：平台定价 Agent}
 
     \begin{columns}[T]
-        \begin{column}{0.49\textwidth}
-            \begin{exampleblock}{平台 Agent：\texttt{revenue\_max}}
-                \footnotesize
-                \textbf{System:} 你是数据市场的平台定价 Agent。可见信息只有候选价格、MWU 推荐价格、卖家数量和最近历史；不要假设买家的私有估值。目标是在多轮交易中提高平台效用和收入。
-
-                \textbf{User:} 当前角色=平台；profile=\texttt{revenue\_max}；观察包含候选价格、MWU 推荐价格、最近历史。比较 MWU 推荐价、最近报价和平台收入后选择价格。
-
-                \textbf{Output:} \texttt{\textbraceleft "reasoning":"提高价格试探支付意愿", "价格":1.0\textbraceright}
+        \begin{column}{0.48\textwidth}
+            \begin{exampleblock}{System Prompt：\texttt{revenue\_max}}
+                \scriptsize
+                你是数据市场的平台定价 Agent。你只观察候选价格、MWU 推荐价格、卖家数量和最近交易历史；你不知道任何买家的私有估值。你的目标是在多轮交易中提高平台收入，同时避免价格过高导致交易失败。请基于历史反馈选择本轮价格。
             \end{exampleblock}
         \end{column}
-        \begin{column}{0.49\textwidth}
-            \begin{exampleblock}{买家 Agent：\texttt{strategic}}
-                \footnotesize
-                \textbf{System:} 你是数据市场的买家 Agent。你只知道自己的估值 $\mu$、当前平台价格和自己的历史；目标是最大化自身效用：估值 $\times$ 数据质量 $-$ 支付。
-
-                \textbf{User:} 当前角色=买家；profile=\texttt{strategic}；观察包含当前价格、我的估值、我的历史。比较诚实报价、低报节省支付和高报获得完整数据的风险。
-
-                \textbf{Output:} \texttt{\textbraceleft "reasoning":"价格低于估值，诚实报价可获得高质量数据", "报价":0.8\textbraceright}
+        \begin{column}{0.48\textwidth}
+            \begin{exampleblock}{User Prompt：每轮注入}
+                \scriptsize
+                当前轮次、总轮次、候选价格、MWU 推荐价格、最近成交价/报价/平台收益。请先判断最近价格是否偏高或偏低，再从候选价格中选择一个价格，并输出 JSON：\texttt{\textbraceleft "reasoning":"...", "价格":1.0\textbraceright}。
             \end{exampleblock}
         \end{column}
     \end{columns}
 
-    \begin{alertblock}{设计原则}
-        \footnotesize Prompt 中明确角色目标、信息边界、机制规则和 JSON schema；reasoning 只保留一句话，便于后续行为解释。
+    \vspace{0.2cm}
+    \begin{block}{为什么这样设计？}
+        \footnotesize 平台 prompt 刻意限制信息集，不让它读取买家真实估值；这样可以检验在与论文相同的不完全信息设定下，LLM 是否会偏离 MWU 推荐价、主动试探支付意愿，或因短期收益目标造成价格震荡。
+    \end{block}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Prompt 示例二：买家 Agent 的三类报价策略}
+
+    \begin{center}
+        \scriptsize
+        \renewcommand{\arraystretch}{1.35}
+        \begin{tabular}{p{2.3cm}|p{4.0cm}|p{3.0cm}|p{3.1cm}}
+            \toprule
+            \textbf{Profile} & \textbf{Prompt 片段} & \textbf{设计目的} & \textbf{验证问题} \\
+            \midrule
+            \texttt{truthful} & 你的目标是最大化单轮效用；Myerson 支付规则下，诚实报价 $b=\mu$ 是占优策略。 & 理论基线 & LLM 能否按机制理论诚实报价？ \\
+            \midrule
+            \texttt{strategic} & 除本轮效用外，也考虑你的报价是否会影响未来价格路径；不要编造不可见信息。 & 多轮策略 & LLM 会不会为压低未来价格而低报？ \\
+            \midrule
+            \texttt{shade} & 如果当前价格低于估值，可以考虑适度低报以节省支付，但要权衡拿不到高质量数据的风险。 & 低报压力测试 & Myerson+MWU 能否抵御策略性低报？ \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
+
+    \vspace{0.15cm}
+    \begin{alertblock}{统一输出}
+        \footnotesize \texttt{\textbraceleft "reasoning":"一句话说明诚实/低报/高报原因", "报价":0.8\textbraceright}；保留 reasoning 是为了把数值偏离和 Agent 的主观解释对应起来。
     \end{alertblock}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Prompt 示例三：竞争外部性与风险偏好}
+
+    \begin{columns}[T]
+        \begin{column}{0.49\textwidth}
+            \begin{exampleblock}{竞争型买家：\texttt{competitive}}
+                \scriptsize
+                你与另一个买家在下游市场竞争。如果对手获得高质量预测而你没有获得，你的商业收益会下降；如果双方都获得数据，预测优势会被部分抵消。请在当前价格、你的估值、对手可能购买的风险之间选择报价。
+            \end{exampleblock}
+            \vspace{0.12cm}
+            \begin{block}{验证问题}
+                \scriptsize 私有估值假设被打破后，买家估值是否会随对手行为动态变化？诚实报价结论是否仍然稳定？
+            \end{block}
+        \end{column}
+        \begin{column}{0.49\textwidth}
+            \begin{exampleblock}{风险规避买家：\texttt{risk\_averse}}
+                \scriptsize
+                你的预算有限，负效用会带来额外风险成本。若价格接近估值，请偏向保守报价；若数据质量提升能显著降低业务风险，可以接受略高报价。输出时说明你主要规避的是支付风险还是质量风险。
+            \end{exampleblock}
+            \vspace{0.12cm}
+            \begin{block}{验证问题}
+                \scriptsize 当参与者不是风险中性时，原机制的收益、效率和成交率是否出现系统性变化？
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Prompt 设计动机与可验证问题}
+
+    \begin{center}
+        \scriptsize
+        \renewcommand{\arraystretch}{1.4}
+        \begin{tabular}{p{2.5cm}|p{4.0cm}|p{5.9cm}}
+            \toprule
+            \textbf{设计元素} & \textbf{为什么这样设计} & \textbf{能验证什么问题} \\
+            \midrule
+            角色目标 & 平台、买家优化目标不同，避免所有 Agent 说出同一种“理性”答案 & 平台收益最大化与买家效用最大化是否会产生机制冲突 \\
+            \midrule
+            信息边界 & 明确“不可见估值/他人历史”，对齐论文的不完全信息假设 & LLM 是否会在信息受限下仍然推断、臆测或策略性行动 \\
+            \midrule
+            机制说明 & 告诉 Agent AF/RF/PF/PD 规则，但不直接给最优动作 & 机制知识是否足以诱导诚实报价或稳定定价 \\
+            \midrule
+            Profile 切换 & 在同一市场环境下只改变 prompt 偏好 & 行为偏差来自市场机制，还是来自 Agent 偏好设定 \\
+            \midrule
+            JSON+reasoning & 动作可执行，理由可分析 & 数值异常、fallback、低报/高报能否被解释和统计 \\
+            \bottomrule
+        \end{tabular}
+    \end{center}
 \end{frame}
 \begin{frame}
 	\frametitle{Prompt Profiles：用于行为对照的 Agent 类型}

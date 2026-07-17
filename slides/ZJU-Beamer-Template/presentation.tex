@@ -8,6 +8,7 @@
 \usepackage{zju_beamer}
 \usepackage{booktabs}
 \usepackage{array}
+\usepackage{tikz}
 \usetikzlibrary{positioning}
 \graphicspath{{./figures/}}
 
@@ -117,6 +118,9 @@
 			\end{block}
 		\end{column}
 	\end{columns}
+	\vspace{0.2cm}
+	{\tiny Agarwal, Dahleh, and Sarkar. \textit{A Marketplace for Data: An Algorithmic Solution}. EC~\textquotesingle 19, 2019.}
+
 \end{frame}
 
 % --- 四大机制及其设计理由 ---
@@ -163,10 +167,8 @@
 	\begin{block}{局限}
 		\begin{enumerate}
 			\item \textbf{买家是短视的}：只优化单轮效用，不考虑多轮策略
-			\item \textbf{买家效用仅来自预测质量}：而非来自特定数据集本身
 			\item \textbf{平台集中定价}：卖家不能自主定价，只能被动接受 Shapley 分成
 			\item \textbf{基于严格的私有估值假设}：忽视了数据的竞争外部性（买家效用往往受对手是否获取数据的影响）
-			\item \textbf{卖家完全被动}：不能提高数据质量、不了解预测任务、不关心隐私
 		\end{enumerate}
 	\end{block}
 
@@ -254,23 +256,210 @@
 \end{frame}
 
 % ============================================================
-% Section 3: Agent 设计 (待填写)
+% Section 3: Agent 设计
 % ============================================================
 \section{Agent 设计}
 
 \begin{frame}
-	\frametitle{Agent 设计}
+	\frametitle{Agent 层总体架构}
 
 	\begin{center}
-		\vspace{2cm}
-		{\Large \color{black!50}（待填写）}
+		\begin{tikzpicture}[node distance=0.55cm,
+			block/.style={rectangle, draw, rounded corners, text width=2.55cm, align=center, minimum height=1.1cm, font=\scriptsize},
+			arrow/.style={->, >=stealth, thick, blue!65}]
 
-		\vspace{1cm}
-		\textit{--- 买家 Agent 的 Prompt 设计、决策空间、LLM 选型等 ---}
+			\node[block, fill=blue!6] (obs) {\textbf{市场观察}\\平台/买家不同信息集};
+			\node[block, fill=green!7, right=0.15cm of obs] (prompt) {\textbf{Prompt Builder}\\角色目标 + 机制说明 + 记忆};
+			\node[block, fill=yellow!10, right=0.15cm of prompt] (llm) {\textbf{LLM 接口}\\OpenAI-compatible API};
+			\node[block, fill=orange!10, right=0.15cm of llm] (parser) {\textbf{ActionParser}\\抽取 JSON 动作};
+			\node[block, fill=red!6, right=0.15cm of parser] (env) {\textbf{环境结算}\\AF/RF/PD/PF 更新};
+
+			\draw[arrow] (obs) -- (prompt);
+			\draw[arrow] (prompt) -- (llm);
+			\draw[arrow] (llm) -- (parser);
+			\draw[arrow] (parser) -- (env);
+		\end{tikzpicture}
 	\end{center}
+
+	\vspace{0.35cm}
+	\begin{columns}[T]
+		\begin{column}{0.49\textwidth}
+			\begin{block}{统一接口}
+				\small
+				所有参与者继承 \texttt{BaseAgent}：
+				\[
+					\texttt{act(obs)} \rightarrow \texttt{action}
+				\]
+				
+			\end{block}
+		\end{column}
+		\begin{column}{0.49\textwidth}
+			\begin{block}{实现模块}
+				\small
+				\texttt{LLMAgent} 负责构造 prompt 与调用模型；\texttt{OpenAICompatibleClient} 负责 HTTP API；\texttt{ActionParser} 负责 JSON 动作解析。
+			\end{block}
+		\end{column}
+	\end{columns}
 \end{frame}
 
+\begin{frame}
+	\frametitle{LLM 接口对接：OpenAI-compatible Chat API}
 
+	\begin{columns}[T]
+		\begin{column}{0.48\textwidth}
+			\begin{block}{API 配置}
+				\small
+				通过环境变量或命令行接入第三方兼容接口：
+				\begin{itemize}
+					\item \texttt{OPENAI\_API\_KEY}
+					\item \texttt{OPENAI\_BASE\_URL}
+					\item \texttt{--model gpt-5.4}
+				\end{itemize}
+				
+			\end{block}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\begin{block}{工程鲁棒性}
+				\small
+				\begin{itemize}
+					\item 支持不同兼容服务的 \texttt{base\_url}
+					\item 默认要求 JSON object 输出
+					\item 支持失败重试与 fallback 动作
+					\item 日志记录 raw output 与错误原因
+				\end{itemize}
+			\end{block}
+		\end{column}
+	\end{columns}
+
+	\vspace{0.35cm}
+	\begin{alertblock}{为什么需要 fallback?}
+		\small LLM 可能出现模型名不支持、JSON mode 不兼容、输出格式偏离等问题；fallback 保证一次坏输出不会中断整个 episode。
+	\end{alertblock}
+\end{frame}
+
+\begin{frame}
+	\frametitle{JSON 动作解析器：从自然语言到可执行动作}
+
+	\begin{block}{解析目标}
+		\small LLM 输出必须最终归一化为环境可执行的动作字典：平台 \texttt{\{"价格": p\}}，买家 \texttt{\{"报价": b\}}。
+	\end{block}
+
+	\vspace{0.2cm}
+	\begin{columns}[T]
+		\begin{column}{0.48\textwidth}
+			\begin{exampleblock}{支持的常见输出形态}
+				\small
+				\begin{itemize}
+					\item 纯 JSON：\texttt{\{"报价": 0.8\}}
+					\item Markdown JSON 代码块
+					\item 先解释、后给 JSON
+					\item 嵌套字段：\texttt{\{"action": \{"bid": 0.7\}\}}
+					\item 英文字段别名：\texttt{price}, \texttt{bid}
+				\end{itemize}
+			\end{exampleblock}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\begin{exampleblock}{动作校验与统计}
+				\small
+				\begin{itemize}
+					\item 平台价格裁剪到候选区间
+					\item 买家报价裁剪为非负数
+					\item 统计解析失败、fallback、越界动作
+					\item 保存 \texttt{reasoning} 供后续行为分析
+				\end{itemize}
+			\end{exampleblock}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Prompt 设计：角色感知 + 机制引导 + 短期记忆}
+
+	\begin{columns}[T]
+		\begin{column}{0.50\textwidth}
+			\begin{block}{System Prompt 结构}
+				\small
+				\begin{enumerate}
+					\item \textbf{角色目标}：平台最大化收益；买家最大化自身效用
+					\item \textbf{信息边界}：平台不知道买家估值；买家不知道他人信息
+					\item \textbf{机制说明}：AF 数据质量、RF 支付、PF/MWU 动态定价
+					\item \textbf{实验 profile}：战略型、诚实型、福利型等
+					\item \textbf{JSON schema}：强制输出可解析动作
+				\end{enumerate}
+			\end{block}
+		\end{column}
+		\begin{column}{0.46\textwidth}
+			\begin{block}{User Prompt 每轮注入}
+				\small
+				\begin{itemize}
+					\item 当前角色与 prompt profile
+					\item 当前观察 \texttt{obs}
+					\item 最近 $K$ 轮记忆
+					\item 内部三步判断：趋势识别、效用影响、数字动作
+				\end{itemize}
+			\end{block}
+			\begin{alertblock}{输出格式}
+				\small \texttt{\{"reasoning": "一句话理由", "报价": 0.8\}} 或 \texttt{\{"reasoning": "一句话理由", "价格": 1.0\}}
+			\end{alertblock}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}
+    \frametitle{Prompt 示例：平台与买家 Agent}
+
+    \begin{columns}[T]
+        \begin{column}{0.49\textwidth}
+            \begin{exampleblock}{平台 Agent：\texttt{revenue\_max}}
+                \footnotesize
+                \textbf{System:} 你是数据市场的平台定价 Agent。可见信息只有候选价格、MWU 推荐价格、卖家数量和最近历史；不要假设买家的私有估值。目标是在多轮交易中提高平台效用和收入。
+
+                \textbf{User:} 当前角色=平台；profile=\texttt{revenue\_max}；观察包含候选价格、MWU 推荐价格、最近历史。比较 MWU 推荐价、最近报价和平台收入后选择价格。
+
+                \textbf{Output:} \texttt{\textbraceleft "reasoning":"提高价格试探支付意愿", "价格":1.0\textbraceright}
+            \end{exampleblock}
+        \end{column}
+        \begin{column}{0.49\textwidth}
+            \begin{exampleblock}{买家 Agent：\texttt{strategic}}
+                \footnotesize
+                \textbf{System:} 你是数据市场的买家 Agent。你只知道自己的估值 $\mu$、当前平台价格和自己的历史；目标是最大化自身效用：估值 $\times$ 数据质量 $-$ 支付。
+
+                \textbf{User:} 当前角色=买家；profile=\texttt{strategic}；观察包含当前价格、我的估值、我的历史。比较诚实报价、低报节省支付和高报获得完整数据的风险。
+
+                \textbf{Output:} \texttt{\textbraceleft "reasoning":"价格低于估值，诚实报价可获得高质量数据", "报价":0.8\textbraceright}
+            \end{exampleblock}
+        \end{column}
+    \end{columns}
+
+    \begin{alertblock}{设计原则}
+        \footnotesize Prompt 中明确角色目标、信息边界、机制规则和 JSON schema；reasoning 只保留一句话，便于后续行为解释。
+    \end{alertblock}
+\end{frame}
+\begin{frame}
+	\frametitle{Prompt Profiles：用于行为对照的 Agent 类型}
+
+	\begin{center}
+		\footnotesize
+		\renewcommand{\arraystretch}{1.35}
+		\begin{tabular}{p{2.7cm}|p{2.2cm}|p{8.0cm}}
+			\toprule
+			\textbf{Profile} & \textbf{角色} & \textbf{行为假设} \\
+			\midrule
+			\texttt{truthful} & 买家 & 强调诚实报价 $b=\mu$，作为理论基线 \\
+			\texttt{strategic} & 买家/平台 & 允许考虑当前动作对未来价格路径的影响 \\
+			\texttt{shade} & 买家 & 允许适度低报，观察 MWU 是否被压价 \\
+			\texttt{revenue\_max} & 平台 & 更强调平台收入和平台效用 \\
+			\texttt{fairness\_aware} & 平台 & 同时关注买家效用和卖家参与激励 \\
+			\texttt{welfare}/\texttt{risk\_averse} & 双方 & 分别强调社会福利或规避负效用风险 \\
+			\bottomrule
+		\end{tabular}
+	\end{center}
+
+	\vspace{0.25cm}
+	\begin{block}{中期实验用途}
+		\small 通过固定市场环境、切换 prompt profile，比较不同 Agent 行为对平台收益、买家效用、卖家收益和动作合法性的影响。
+	\end{block}
+\end{frame}
 
 \section{模拟实验及结果}
 
@@ -347,15 +536,16 @@
 	\frametitle{实验记录与模块输出}
   每次外部 Agent 决策都会记录一条 step 日志：
   \[
-    \{\texttt{role},\ \texttt{observation},\ \texttt{action},\ \texttt{reward}\}
+    \{\texttt{role},\ \texttt{observation},\ \texttt{action},\ \texttt{reward},\ \texttt{reasoning}\}
   \]
 
-  \vspace{0.3cm}
+  \vspace{0.25cm}
   episode 结束后输出 \texttt{EpisodeRunResult}：
   \begin{itemize}
-    \item \texttt{steps}：逐轮决策日志，用于分析价格、报价和效用轨迹；
-    \item \texttt{final\_reward}：最后一轮交易反馈；
-    \item \texttt{summary}：整个 episode 的累计效用统计。
+    \item \texttt{steps}：逐轮日志，包含 \texttt{raw\_output}、\texttt{reasoning}、\texttt{fallback\_used}；
+    \item \texttt{summary}：平台总效用、买家平均效用、卖家效用等指标；
+    \item \texttt{action\_stats}：fallback 次数、非法动作次数、缺少 reasoning 次数；
+    \item 自动保存 \texttt{baseline\_results.json}、\texttt{summary\_table.csv} 和 \texttt{step\_table.csv}。
   \end{itemize}
 \end{frame}
 
@@ -418,27 +608,46 @@
 \section{参考文献}
 
 \begin{frame}[allowframebreaks]
-	\frametitle{参考文献}
+    \frametitle{参考文献}
 
-	\begin{thebibliography}{10}
+    \begin{thebibliography}{10}\footnotesize
 
-		\bibitem{agarwal2019}
-		Anish Agarwal, Munther Dahleh, and Tuhin Sarkar.
-		\newblock A Marketplace for Data: An Algorithmic Solution.
-		\newblock In \textit{Proceedings of the 2019 ACM Conference on Economics and Computation (EC '19)}, 2019.
+        \bibitem{agarwal2019}
+        Anish Agarwal, Munther Dahleh, and Tuhin Sarkar.
+        \newblock A Marketplace for Data: An Algorithmic Solution.
+        \newblock In \textit{Proceedings of the 2019 ACM Conference on Economics and Computation (EC '19)}, 2019.
 
-						\bibitem{wu2026}
-		Wu P, Chen P Q, Li X, et al.
-		\newblock Datamart-Agent: LLM-Driven Game-Theoretic Agent for Data Marketplace Modeling.
-		\newblock In \textit{Findings of the Association for Computational Linguistics: ACL 2026}, 2026: 32509--32531.
+        \bibitem{wu2026datamart}
+        Pangjing Wu, Peter Q. Chen, Xiaodong Li, Wenqi Fan, and Li Qing.
+        \newblock Datamart-Agent: LLM-Driven Game-Theoretic Agent for Data Marketplace Modeling.
+        \newblock In \textit{Findings of the Association for Computational Linguistics: ACL 2026}, pages 32509--32531, 2026.
 
-\bibitem{li2024}
-		Nian Li, Chen Gao, Mingyu Li, Yong Li, and Qingmin Liao.
-		\newblock EconAgent: Large Language Model-Empowered Agents for Simulating Macroeconomic Activities.
-		\newblock In \textit{Proceedings of ACL 2024}, 2024.
+        \bibitem{li2024econagent}
+        Nian Li, Chen Gao, Mingyu Li, Yong Li, and Qingmin Liao.
+        \newblock EconAgent: Large Language Model-Empowered Agents for Simulating Macroeconomic Activities.
+        \newblock In \textit{Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (ACL 2024)}, pages 15523--15536, 2024.
 
+        \bibitem{zhang2026stockagent}
+        Chong Zhang, Xinyi Liu, Zhongmou Zhang, Mingyu Jin, Lingyao Li, Zhenting Wang, Wenyue Hua, Dong Shu, Suiyuan Zhu, Xiaobo Jin, Sujian Li, Mengnan Du, and Yongfeng Zhang.
+        \newblock When AI Meets Finance (StockAgent): Large Language Model-based Stock Trading in Simulated Real-world Environments.
+        \newblock \textit{arXiv preprint arXiv:2407.18957}, 2026.
 
-		\end{thebibliography}
+        \bibitem{liu2026agenticpay}
+        Xianyang Liu, Shangding Gu, and Dawn Song.
+        \newblock AgenticPay: A Multi-Agent LLM Negotiation System for Buyer--Seller Transactions.
+        \newblock \textit{arXiv preprint arXiv:2602.06008}, 2026.
+
+        \bibitem{myerson1981}
+        Roger B. Myerson.
+        \newblock Optimal Auction Design.
+        \newblock \textit{Mathematics of Operations Research}, 6(1):58--73, 1981.
+
+        \bibitem{shapley1953}
+        Lloyd S. Shapley.
+        \newblock A Value for n-Person Games.
+        \newblock In \textit{Contributions to the Theory of Games II}, pages 307--317, 1953.
+
+    \end{thebibliography}
 \end{frame}
 
 % ============================================================

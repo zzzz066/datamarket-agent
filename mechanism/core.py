@@ -197,7 +197,11 @@ def myerson_revenue_function(
         return 0.0
     grid = np.linspace(0.0, b, int(max(2, integration_steps)))
     gains = np.array([float(np.clip(gain_at_bid(z), 0.0, 1.0)) for z in grid], dtype=float)
-    integral = float(np.trapz(gains, grid))
+    # NumPy 2.x 推荐使用 trapezoid；旧版本没有时回退到 trapz。
+    if hasattr(np, "trapezoid"):
+        integral = float(np.trapezoid(gains, grid))
+    else:
+        integral = float(np.trapz(gains, grid))
     return float(max(0.0, b * gains[-1] - integral))
 
 

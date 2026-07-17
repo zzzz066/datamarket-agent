@@ -31,8 +31,32 @@ from .mechanism.core import (
 from .env.base import Buyer, MarketplaceForDataEnv, Seller, StepResult
 from .env.wrapper import AgentMarketEnv
 
+# Experiment runner
+from .experiments import (
+    EpisodeRunResult,
+    EpisodeStepLog,
+    UtilityGapReport,
+    compare_experiments,
+    episode_to_dict,
+    make_chart_payload,
+    make_step_table,
+    make_summary_table,
+    pass_at_epsilon,
+    load_analysis_json,
+    load_csv_table,
+    plot_standard_charts,
+    plot_trajectory,
+    plot_utility_gap,
+    run_baseline_suite,
+    run_four_mode_suite,
+    run_episode,
+    save_analysis,
+    save_episode_logs,
+    utility_gap,
+)
+
 # Agent 接口
-from .agents.base import BaseAgent
+from .agents import BaseAgent
 
 __all__ = [
     # 机制
@@ -54,6 +78,27 @@ __all__ = [
     "Seller",
     "StepResult",
     "AgentMarketEnv",
+    # Experiment runner
+    "EpisodeRunResult",
+    "EpisodeStepLog",
+    "UtilityGapReport",
+    "compare_experiments",
+    "episode_to_dict",
+    "make_chart_payload",
+    "make_step_table",
+    "make_summary_table",
+    "pass_at_epsilon",
+    "load_analysis_json",
+    "load_csv_table",
+    "plot_standard_charts",
+    "plot_trajectory",
+    "plot_utility_gap",
+    "run_baseline_suite",
+    "run_four_mode_suite",
+    "run_episode",
+    "save_analysis",
+    "save_episode_logs",
+    "utility_gap",
     # Agent
     "BaseAgent",
 ]

@@ -31,6 +31,22 @@
 	\titlepage
 \end{frame}
 
+\begin{frame}
+	\frametitle{工作分工与 AI 使用情况}
+
+	\begin{block}{工作内容}
+		\begin{itemize}
+			\item 周首航：市场机制实现与选题
+			\item 杨馨懿：Agent 实现
+			\item 郑伊霞：实验
+		\end{itemize}
+	\end{block}
+
+	\begin{block}{AI 使用情况}
+		辅助完成代码，分析结果。
+	\end{block}
+\end{frame}
+
 % ============================================================
 % 目录页
 % ============================================================
@@ -267,40 +283,7 @@
 
 
 
-\begin{frame}
-	\frametitle{JSON 动作解析器：从自然语言到可执行动作}
 
-	\begin{block}{解析目标}
-		\small LLM 输出必须最终归一化为环境可执行的动作字典：平台 \texttt{\{"价格": p\}}，买家 \texttt{\{"报价": b\}}。
-	\end{block}
-
-	\vspace{0.2cm}
-	\begin{columns}[T]
-		\begin{column}{0.48\textwidth}
-			\begin{exampleblock}{支持的常见输出形态}
-				\small
-				\begin{itemize}
-					\item 纯 JSON：\texttt{\{"报价": 0.8\}}
-					\item Markdown JSON 代码块
-					\item 先解释、后给 JSON
-					\item 嵌套字段：\texttt{\{"action": \{"bid": 0.7\}\}}
-					\item 英文字段别名：\texttt{price}, \texttt{bid}
-				\end{itemize}
-			\end{exampleblock}
-		\end{column}
-		\begin{column}{0.48\textwidth}
-			\begin{exampleblock}{动作校验与统计}
-				\small
-				\begin{itemize}
-					\item 平台价格裁剪到候选区间
-					\item 买家报价裁剪为非负数
-					\item 统计解析失败、fallback、越界动作
-					\item 保存 \texttt{reasoning} 供后续行为分析
-				\end{itemize}
-			\end{exampleblock}
-		\end{column}
-	\end{columns}
-\end{frame}
 
 \begin{frame}
 	\frametitle{Prompt 设计：角色感知 + 机制引导 + 短期记忆}
@@ -461,131 +444,133 @@
 	\end{block}
 \end{frame}
 
-\section{模拟实验及结果}
-
-\begin{frame}
-  \frametitle{实验流程}
-  \begin{block}{模块定位}
-    负责把市场机制环境与外部 Agent 接口组织成可重复运行的多轮实验。
-  \end{block}
-
-  \vspace{0.25cm}
-  交易轮数由买家序列长度决定：
-  \[
-    \texttt{total\_rounds}=\texttt{len(buyers)}
-  \]
-
-  \vspace{0.25cm}
-  一个 episode 表示一段连续交易过程：
-  \begin{itemize}
-    \item 卖家数据池在实验开始前固定；
-    \item 买家按照预设序列依次进入市场；
-    \item 每一轮中，平台先定价，当前买家再报价；
-    \item 底层 AF/RF/PD/PF 完成结算与价格状态更新；
-    \item 实验系统记录该轮结果并进入下一轮。
-  \end{itemize}
-
-\end{frame}
-
-\begin{frame}
-  \frametitle{四种实验模式}
-  为比较规则机制与 Agent 决策的影响，实验设计四种模式。
-
-  \vspace{0.25cm}
-  \begin{center}
-    \begin{tabular}{>{\centering\arraybackslash}p{2.8cm}
-                    >{\centering\arraybackslash}p{3.0cm}
-                    >{\centering\arraybackslash}p{2.6cm}
-                    p{4.0cm}}
-      \toprule
-      模式 & 平台/卖方定价侧 & 买家侧 & 实验目的 \\
-      \midrule
-      \texttt{all\_rule} & MWU 规则 & 诚实报价规则 & 作为规则基准组 \\
-      \texttt{seller\_agent} & Agent & 诚实报价规则 & 测试平台 Agent 定价影响 \\
-      \texttt{buyer\_agent} & MWU 规则 & Agent & 测试买家 Agent 报价影响 \\
-      \texttt{both\_agent} & Agent & Agent & 测试双边 Agent 交互效果 \\
-      \bottomrule
-    \end{tabular}
-  \end{center}
-
-\end{frame}
-
-\begin{frame}
-  \frametitle{信息控制}
-  实验提供统一接口：
-  \[
-    \texttt{agent.act(obs)} \rightarrow \texttt{action}
-  \]
-
-  \vspace{0.25cm}
-  观测信息按角色构造：
-  \begin{itemize}
-    \item 平台侧可见当前轮次、总轮次、候选价格、卖家数量、最近历史；
-    \item 买家侧可见当前轮次、总轮次、自身估值 $\mu$、当前价格、自身历史；
-  \end{itemize}
-
-  \vspace{0.25cm}
-  当前可被 Agent 接管的两个决策点：
-  \begin{itemize}
-    \item 平台侧定价：\texttt{\{"价格": p\}}
-    \item 买家侧报价：\texttt{\{"报价": b\}}
-  \end{itemize}
-\end{frame}
-
-\begin{frame}
-	\frametitle{实验记录与模块输出}
-  每次外部 Agent 决策都会记录一条 step 日志：
-  \[
-    \{\texttt{role},\ \texttt{observation},\ \texttt{action},\ \texttt{reward},\ \texttt{reasoning}\}
-  \]
-
-  \vspace{0.25cm}
-  episode 结束后输出 \texttt{EpisodeRunResult}：
-  \begin{itemize}
-    \item \texttt{steps}：逐轮日志，包含 \texttt{raw\_output}、\texttt{reasoning}、\texttt{fallback\_used}；
-    \item \texttt{summary}：平台总效用、买家平均效用、卖家效用等指标；
-    \item \texttt{action\_stats}：fallback 次数、非法动作次数、缺少 reasoning 次数；
-    \item 自动保存 \texttt{baseline\_results.json}、\texttt{summary\_table.csv} 和 \texttt{step\_table.csv}。
-  \end{itemize}
-\end{frame}
-
-\begin{frame}
-	\frametitle{分析目标}
-  \begin{block}{核心问题}
-    Agent 接入后，市场结果相对规则基准组发生了怎样的变化？
-  \end{block}
-
-  \vspace{0.3cm}
-  数据分析主要比较：
-  \begin{itemize}
-    \item 不同模式下的平台总效用；
-    \item 不同模式下的买家平均效用；
-    \item Agent 是否改变价格、报价、数据增益和平台收入的动态轨迹。
-  \end{itemize}
-\end{frame}
-
-\begin{frame}
-	\frametitle{基准组与指标定义}
-  以下分析以 \texttt{all\_rule} 作为基准组：
-  \[
-    \texttt{all\_rule}=\text{MWU 定价}+\text{买家诚实报价}
-  \]
-
-  \vspace{0.3cm}
-  Utility Gap 定义为：
-  \[
-    \text{Utility Gap}=\text{规则基准组效用}-\text{当前模式效用}
-  \]
-
-  Pass@epsilon 用于判断某个模式是否足够接近规则基准组：
-  \[
-    |\texttt{platform\_gap}| \leq \epsilon,\quad
-    |\texttt{buyer\_average\_gap}| \leq \epsilon
-  \]
-\end{frame}
-
+% Section 4: 实验与结果
 % ============================================================
-% Section 5: 后续计划 (待填写)
+\section{实验与结果}
+
+\begin{frame}
+	\frametitle{实验设计：四模式对比}
+
+	\begin{columns}[T]
+		\begin{column}{0.48\textwidth}
+			\begin{block}{四种实验模式}
+				\small
+				\begin{enumerate}
+					\item \textbf{all\_rule}：MWU 定价 + 买家诚实报价（理论基准）
+					\item \textbf{seller\_agent}：LLM 平台定价 + 诚实买家
+					\item \textbf{buyer\_agent}：MWU 定价 + LLM 买家报价
+					\item \textbf{both\_agent}：LLM 平台定价 + LLM 买家报价
+				\end{enumerate}
+			\end{block}
+		\end{column}
+		\begin{column}{0.48\textwidth}
+			\begin{block}{实验参数}
+				\small
+				\begin{itemize}
+					\item 交易轮数：50 轮
+					\item 买家估值 $\mu$：$\mathcal{U}(0.3, 1.3)$
+					\item MWU 候选价格：$[0.1, 1.6]$，步长 0.05
+					\item LLM：GPT-4o-mini，balanced profile
+					\item 平台 Agent 不暴露 MWU
+				\end{itemize}
+			\end{block}
+		\end{column}
+	\end{columns}
+
+	\vspace{0.3cm}
+	\begin{center}
+		\textbf{核心指标}：平台总效用、买家平均效用、Utility Gap（相对 all\_rule 的偏离）
+	\end{center}
+\end{frame}
+
+\begin{frame}
+	\frametitle{实验结果：四模式汇总}
+
+	\begin{center}
+		\footnotesize
+		\renewcommand{\arraystretch}{1.5}
+		\begin{tabular}{l|c|c|c}
+			\toprule
+			\textbf{模式} & \textbf{平台效用} & \textbf{买家均效用} & \textbf{Utility Gap} \\
+			\midrule
+			all\_rule（基准） & 12.96 & 0.475 & --- \\
+			seller\_agent & 12.57（$-3\%$） & 0.508（$+7\%$） & 较小 \\
+			buyer\_agent & 9.37（$\mathbf{-28\%}$） & 0.534（$+12\%$） & \textbf{严重} \\
+			both\_agent & 11.50（$-11\%$） & 0.525（$+10\%$） & 中等 \\
+			\bottomrule
+		\end{tabular}
+	\end{center}
+
+	\vspace{0.3cm}
+	\begin{alertblock}{关键发现}
+		\begin{itemize}
+			\item \textbf{buyer\_agent 模式下平台效用暴跌 28\%}：LLM 买家系统性低报，MWU 无法适应
+			\item LLM 平台定价反而更务实（定价 0.8 vs MWU 的 1.05--1.15），买家效用提升
+			\item Pass@$\epsilon$ = 0.25：全部 Agent 模式均不能通过 $\epsilon$=0.05 阈值
+		\end{itemize}
+	\end{alertblock}
+\end{frame}
+
+\begin{frame}
+	\frametitle{深入分析：LLM 买家为什么低报？}
+
+	\begin{block}{LLM 买家的决策逻辑（从 reasoning 字段提取）}
+		\small
+		\renewcommand{\arraystretch}{1.3}
+		\begin{tabular}{c|c|c|l}
+			\toprule
+			$\mu$ & price & bid & LLM reasoning（原文） \\
+			\midrule
+			1.074 & 0.10 & 1.074 & ``价格远低于估值，选择诚实报价以获取完整数据'' \\
+			0.739 & 1.05 & 0.500 & ``价格高于估值，选择低报以节省支付并规避风险'' \\
+			1.159 & 1.05 & 1.159 & ``价格低于估值，选择诚实报价以获取完整数据'' \\
+			0.997 & 1.10 & 0.500 & ``价格高于估值，选择低报以节省支付并规避风险'' \\
+			\bottomrule
+		\end{tabular}
+	\end{block}
+
+	\vspace{0.2cm}
+	\begin{center}
+		\textbf{决策模式极简：$\mu > p$ $\rightarrow$ 诚实；$\mu < p$ $\rightarrow$ 低报}\\
+		当 MWU 定价在 1.05--1.15 时，大多数买家 $\mu$ 低于此值 $\rightarrow$ 系统性低报 $\rightarrow$ 市场停滞
+	\end{center}
+\end{frame}
+
+\begin{frame}
+	\frametitle{深入分析：LLM 平台为什么更好？}
+
+	\begin{columns}[T]
+		\begin{column}{0.45\textwidth}
+			\begin{block}{LLM 平台的价格探索过程}
+				\small
+				\begin{enumerate}
+					\item 0.50：``选择初始价格以平衡收益''
+					\item 0.60：``根据成交报价趋势提价''
+					\item 0.70：``继续提高平台收入''
+					\item 0.80：``进一步提高平台效用''
+					\item 0.85：试探上限
+					\item \textbf{0.80（锁定 45 轮）}：``维持平台收入和买家参与度''
+				\end{enumerate}
+			\end{block}
+		\end{column}
+		\begin{column}{0.52\textwidth}
+			\begin{block}{对比 MWU 定价}
+				\small
+				\begin{itemize}
+					\item MWU 锁定在 1.05--1.15：价格过高
+					\item LLM 平台探索到 0.8：$p <$ 多数买家 $\mu$
+					\item $\rightarrow$ \textbf{诚实报价成为自然选择}
+					\item both\_agent 模式下大部分买家诚实报价
+				\end{itemize}
+			\end{block}
+			\vspace{0.2cm}
+			\begin{center}
+				\textbf{LLM 平台通过简单探索找到了比理论最优更好的定价}
+			\end{center}
+		\end{column}
+	\end{columns}
+\end{frame}
+
 % ============================================================
 % ============================================================
 % Section 5: 后续计划

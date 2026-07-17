@@ -38,10 +38,26 @@ class EpisodeStepLog:
 
 
 @dataclass
+class EpisodeRoundLog:
+    """一轮真实交易结算后的日志。"""
+
+    round_index: int
+    buyer_id: str
+    price: float
+    bid: float
+    buyer_utility: float
+    platform_utility: float
+    seller_utilities: list[float]
+    platform_revenue: float
+    gain: float
+
+
+@dataclass
 class EpisodeRunResult:
     """一次完整 episode 的输出。"""
 
     steps: list[EpisodeStepLog]
+    rounds: list[EpisodeRoundLog]
     final_reward: Dict[str, Any]
     summary: Dict[str, Any]
 
@@ -84,6 +100,8 @@ def run_episode(
     shade_factor: float = 0.65,
     overbid_factor: float = 1.4,
     expose_mwu_to_platform_agent: bool = False,
+    verbose: bool = False,
+    progress_label: str = "episode",
 ) -> EpisodeRunResult:
     """运行一个完整 episode，并返回结构化日志。"""
 
@@ -114,27 +132,40 @@ def run_episode(
         if role == "平台":
             if not expose_mwu_to_platform_agent:
                 agent_obs = _hide_mwu_fields(current_obs)
+            if verbose:
+                round_no = agent_obs.get("当前轮次", step_index + 1)
+                total = agent_obs.get("总轮次", "?")
+                print(f"[{progress_label}] round {round_no}/{total} role=平台 -> calling agent", flush=True)
             action = _call_agent(platform_agent, agent_obs)
         elif role == "买家":
+            if verbose:
+                round_no = agent_obs.get("当前轮次", step_index + 1)
+                total = agent_obs.get("总轮次", "?")
+                print(f"[{progress_label}] round {round_no}/{total} role=买家 -> calling agent", flush=True)
             action = _call_agent(buyer_agent, agent_obs)
         else:
             break
 
         obs = env.step(role, action)
+        # 平台动作之后如果还要等待买家 Agent 报价，本步尚未发生交易结算。
+        # 此时 reward 记为空，避免把上一轮结算结果重复挂到平台决策行上。
+        step_reward = {} if role == "平台" and buyer_mode == "agent" else env.get_last_reward()
         steps.append(
             EpisodeStepLog(
                 step_index=step_index,
                 role=role,
                 observation=agent_obs,
                 action=action,
-                reward=env.get_last_reward(),
+                reward=step_reward,
             )
         )
         step_index += 1
 
     final_reward = obs if isinstance(obs, dict) else env.get_last_reward()
+    rounds = [EpisodeRoundLog(**item) for item in env.transaction_history()]
     return EpisodeRunResult(
         steps=steps,
+        rounds=rounds,
         final_reward=final_reward,
         summary=env.episode_summary(),
     )
@@ -154,6 +185,20 @@ def episode_to_dict(result: EpisodeRunResult) -> Dict[str, Any]:
             }
             for item in result.steps
         ],
+        "rounds": [
+            {
+                "round_index": item.round_index,
+                "buyer_id": item.buyer_id,
+                "price": item.price,
+                "bid": item.bid,
+                "buyer_utility": item.buyer_utility,
+                "platform_utility": item.platform_utility,
+                "seller_utilities": item.seller_utilities,
+                "platform_revenue": item.platform_revenue,
+                "gain": item.gain,
+            }
+            for item in result.rounds
+        ],
         "final_reward": result.final_reward,
         "summary": result.summary,
     }
@@ -165,44 +210,71 @@ def save_episode_logs(result: EpisodeRunResult, output_dir: str | Path) -> Dict[
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
     json_path = out / "episode_log.json"
-    csv_path = out / "episode_steps.csv"
+    rounds_csv_path = out / "episode_rounds.csv"
+    decision_csv_path = out / "episode_decision_steps.csv"
 
     with json_path.open("w", encoding="utf-8") as f:
         json.dump(episode_to_dict(result), f, ensure_ascii=False, indent=2)
 
-    rows = []
-    for step in result.steps:
-        reward = step.reward or {}
-        rows.append(
+    round_rows = []
+    for item in result.rounds:
+        round_rows.append(
             {
-                "step_index": step.step_index,
-                "role": step.role,
-                "price": reward.get("价格"),
-                "bid": reward.get("报价"),
-                "buyer_utility": reward.get("买家效用"),
-                "platform_utility": reward.get("平台效用"),
-                "platform_revenue": reward.get("平台收入"),
-                "gain": reward.get("增益"),
+                "step_index": item.round_index,
+                "round_index": item.round_index,
+                "buyer_id": item.buyer_id,
+                "price": item.price,
+                "bid": item.bid,
+                "buyer_utility": item.buyer_utility,
+                "platform_utility": item.platform_utility,
+                "seller_utilities": item.seller_utilities,
+                "platform_revenue": item.platform_revenue,
+                "gain": item.gain,
             }
         )
-    with csv_path.open("w", encoding="utf-8-sig", newline="") as f:
+    with rounds_csv_path.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(
             f,
             fieldnames=[
                 "step_index",
-                "role",
+                "round_index",
+                "buyer_id",
                 "price",
                 "bid",
                 "buyer_utility",
                 "platform_utility",
+                "seller_utilities",
                 "platform_revenue",
                 "gain",
             ],
         )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(round_rows)
 
-    return {"json": str(json_path), "csv": str(csv_path)}
+    decision_rows = []
+    for step in result.steps:
+        decision_rows.append(
+            {
+                "step_index": step.step_index,
+                "role": step.role,
+                "observation": json.dumps(step.observation, ensure_ascii=False),
+                "action": json.dumps(step.action, ensure_ascii=False),
+                "reward": json.dumps(step.reward, ensure_ascii=False),
+            }
+        )
+    with decision_csv_path.open("w", encoding="utf-8-sig", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["step_index", "role", "observation", "action", "reward"],
+        )
+        writer.writeheader()
+        writer.writerows(decision_rows)
+
+    return {
+        "json": str(json_path),
+        "rounds_csv": str(rounds_csv_path),
+        "decision_steps_csv": str(decision_csv_path),
+    }
 
 
 def run_baseline_suite(
@@ -259,6 +331,7 @@ def run_four_mode_suite(
     buyer_agent: AgentLike = None,
     seed: Optional[int] = 42,
     expose_mwu_to_seller_agent: bool = False,
+    verbose: bool = False,
     **env_kwargs: Any,
 ) -> Dict[str, EpisodeRunResult]:
     """运行 all_rule、seller_agent、buyer_agent、both_agent 四种模式。
@@ -275,6 +348,8 @@ def run_four_mode_suite(
         platform_mode="mwu",
         buyer_mode="truthful",
         seed=seed,
+        verbose=verbose,
+        progress_label="all_rule",
         **common,
     )
 
@@ -287,6 +362,8 @@ def run_four_mode_suite(
             buyer_mode="truthful",
             seed=seed,
             expose_mwu_to_platform_agent=expose_mwu_to_seller_agent,
+            verbose=verbose,
+            progress_label="seller_agent",
             **common,
         )
 
@@ -298,6 +375,8 @@ def run_four_mode_suite(
             platform_mode="mwu",
             buyer_mode="agent",
             seed=seed,
+            verbose=verbose,
+            progress_label="buyer_agent",
             **common,
         )
 
@@ -311,6 +390,8 @@ def run_four_mode_suite(
             buyer_mode="agent",
             seed=seed,
             expose_mwu_to_platform_agent=expose_mwu_to_seller_agent,
+            verbose=verbose,
+            progress_label="both_agent",
             **common,
         )
 

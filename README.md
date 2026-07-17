@@ -299,3 +299,14 @@ print(env.ground_truth())
 
 
 详见 `INTERFACE.md`。
+
+## 模拟实验方法
+
+```
+python experiments\run_four_modes.py `
+   --rounds 50 `
+   --seller-agent agents.base:LLMAgent `
+   --buyer-agent agents.base:LLMAgent `
+   --output-dir outputs\llm_test `
+   --verbose
+```

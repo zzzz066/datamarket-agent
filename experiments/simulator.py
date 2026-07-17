@@ -35,6 +35,7 @@ class EpisodeStepLog:
     observation: Dict[str, Any]
     action: Dict[str, Any]
     reward: Dict[str, Any] = field(default_factory=dict)
+    agent_debug: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -70,6 +71,17 @@ def _call_agent(agent: AgentLike, obs: Dict[str, Any]) -> Dict[str, Any]:
     if hasattr(agent, "act"):
         return getattr(agent, "act")(obs)
     return agent(obs)
+
+
+def _agent_debug(agent: AgentLike) -> Dict[str, Any]:
+    """读取 Agent 最近一次调用的调试信息。"""
+
+    if agent is None:
+        return {}
+    debug = getattr(agent, "last_debug", None)
+    if isinstance(debug, dict):
+        return dict(debug)
+    return {}
 
 
 def _hide_mwu_fields(obs: Dict[str, Any]) -> Dict[str, Any]:
@@ -137,12 +149,14 @@ def run_episode(
                 total = agent_obs.get("总轮次", "?")
                 print(f"[{progress_label}] round {round_no}/{total} role=平台 -> calling agent", flush=True)
             action = _call_agent(platform_agent, agent_obs)
+            debug = _agent_debug(platform_agent)
         elif role == "买家":
             if verbose:
                 round_no = agent_obs.get("当前轮次", step_index + 1)
                 total = agent_obs.get("总轮次", "?")
                 print(f"[{progress_label}] round {round_no}/{total} role=买家 -> calling agent", flush=True)
             action = _call_agent(buyer_agent, agent_obs)
+            debug = _agent_debug(buyer_agent)
         else:
             break
 
@@ -157,6 +171,7 @@ def run_episode(
                 observation=agent_obs,
                 action=action,
                 reward=step_reward,
+                agent_debug=debug,
             )
         )
         step_index += 1
@@ -182,6 +197,7 @@ def episode_to_dict(result: EpisodeRunResult) -> Dict[str, Any]:
                 "observation": item.observation,
                 "action": item.action,
                 "reward": item.reward,
+                "agent_debug": item.agent_debug,
             }
             for item in result.steps
         ],
@@ -260,12 +276,13 @@ def save_episode_logs(result: EpisodeRunResult, output_dir: str | Path) -> Dict[
                 "observation": json.dumps(step.observation, ensure_ascii=False),
                 "action": json.dumps(step.action, ensure_ascii=False),
                 "reward": json.dumps(step.reward, ensure_ascii=False),
+                "agent_debug": json.dumps(step.agent_debug, ensure_ascii=False),
             }
         )
     with decision_csv_path.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["step_index", "role", "observation", "action", "reward"],
+            fieldnames=["step_index", "role", "observation", "action", "reward", "agent_debug"],
         )
         writer.writeheader()
         writer.writerows(decision_rows)

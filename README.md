@@ -331,7 +331,7 @@ print(env.ground_truth())
 
 ```
 python experiments\run_four_modes.py `
-   --rounds 50 `
+   --rounds 5 `
    --seller-agent agents.base:LLMAgent `
    --buyer-agent agents.base:LLMAgent `
    --output-dir outputs\llm_test `

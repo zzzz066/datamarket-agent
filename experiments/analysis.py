@@ -216,6 +216,7 @@ def make_decision_step_table(result: EpisodeRunResult) -> list[Dict[str, Any]]:
                 "observation": json.dumps(step.observation, ensure_ascii=False),
                 "action": json.dumps(step.action, ensure_ascii=False),
                 "reward": json.dumps(step.reward, ensure_ascii=False),
+                "agent_debug": json.dumps(step.agent_debug, ensure_ascii=False),
             }
         )
     return rows
@@ -384,7 +385,7 @@ def save_analysis(
         with mode_decision_steps_path.open("w", encoding="utf-8-sig", newline="") as f:
             writer = csv.DictWriter(
                 f,
-                fieldnames=["step_index", "role", "observation", "action", "reward"],
+                fieldnames=["step_index", "role", "observation", "action", "reward", "agent_debug"],
             )
             writer.writeheader()
             writer.writerows(mode_decision_rows)

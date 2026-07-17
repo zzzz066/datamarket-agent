@@ -32,7 +32,17 @@ from .env.base import Buyer, MarketplaceForDataEnv, Seller, StepResult
 from .env.wrapper import AgentMarketEnv
 
 # Agent 接口
-from .agents.base import BaseAgent
+from .agents.base import (
+    ActionParser,
+    AgentActionParseError,
+    BaseAgent,
+    LLMAgent,
+    OpenAICompatibleClient,
+    OverbidBuyerAgent,
+    RuleBasedPlatformAgent,
+    ShadeBuyerAgent,
+    TruthfulBuyerAgent,
+)
 
 __all__ = [
     # 机制
@@ -55,5 +65,13 @@ __all__ = [
     "StepResult",
     "AgentMarketEnv",
     # Agent
+    "ActionParser",
+    "AgentActionParseError",
     "BaseAgent",
+    "LLMAgent",
+    "OpenAICompatibleClient",
+    "OverbidBuyerAgent",
+    "RuleBasedPlatformAgent",
+    "ShadeBuyerAgent",
+    "TruthfulBuyerAgent",
 ]

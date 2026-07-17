@@ -263,61 +263,9 @@
 		\end{tikzpicture}
 	\end{center}
 
-	\vspace{0.35cm}
-	\begin{columns}[T]
-		\begin{column}{0.49\textwidth}
-			\begin{block}{统一接口}
-				\small
-				所有参与者继承 \texttt{BaseAgent}：
-				\[
-					\texttt{act(obs)} \rightarrow \texttt{action}
-				\]
-				
-			\end{block}
-		\end{column}
-		\begin{column}{0.49\textwidth}
-			\begin{block}{实现模块}
-				\small
-				\texttt{LLMAgent} 负责构造 prompt 与调用模型；\texttt{OpenAICompatibleClient} 负责 HTTP API；\texttt{ActionParser} 负责 JSON 动作解析。
-			\end{block}
-		\end{column}
-	\end{columns}
 \end{frame}
 
-\begin{frame}
-	\frametitle{LLM 接口对接：OpenAI-compatible Chat API}
 
-	\begin{columns}[T]
-		\begin{column}{0.48\textwidth}
-			\begin{block}{API 配置}
-				\small
-				通过环境变量或命令行接入第三方兼容接口：
-				\begin{itemize}
-					\item \texttt{OPENAI\_API\_KEY}
-					\item \texttt{OPENAI\_BASE\_URL}
-					\item \texttt{--model gpt-5.4}
-				\end{itemize}
-				
-			\end{block}
-		\end{column}
-		\begin{column}{0.48\textwidth}
-			\begin{block}{工程鲁棒性}
-				\small
-				\begin{itemize}
-					\item 支持不同兼容服务的 \texttt{base\_url}
-					\item 默认要求 JSON object 输出
-					\item 支持失败重试与 fallback 动作
-					\item 日志记录 raw output 与错误原因
-				\end{itemize}
-			\end{block}
-		\end{column}
-	\end{columns}
-
-	\vspace{0.35cm}
-	\begin{alertblock}{为什么需要 fallback?}
-		\small LLM 可能出现模型名不支持、JSON mode 不兼容、输出格式偏离等问题；fallback 保证一次坏输出不会中断整个 episode。
-	\end{alertblock}
-\end{frame}
 
 \begin{frame}
 	\frametitle{JSON 动作解析器：从自然语言到可执行动作}

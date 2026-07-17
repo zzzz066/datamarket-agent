@@ -282,6 +282,7 @@ class LLMAgent(BaseAgent):
     fallback_on_error: bool = True
     response_format: Optional[Mapping[str, str]] = field(default_factory=lambda: {"type": "json_object"})
     _memory: List[Dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    last_debug: Dict[str, Any] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.client is None:
@@ -289,12 +290,21 @@ class LLMAgent(BaseAgent):
 
     def reset(self) -> None:
         self._memory.clear()
+        self.last_debug = {}
 
     def act(self, obs: Dict[str, Any]) -> Dict[str, Any]:
         role = self.role or infer_role_from_obs(obs)
         messages = self._build_messages(obs, role)
         last_error: Optional[Exception] = None
+        self.last_debug = {
+            "role": role,
+            "fallback": False,
+            "raw": None,
+            "error": None,
+            "attempts": 0,
+        }
         for attempt in range(int(self.max_retries) + 1):
+            self.last_debug["attempts"] = attempt + 1
             try:
                 raw = self.client.complete(
                     messages,
@@ -302,11 +312,14 @@ class LLMAgent(BaseAgent):
                     temperature=self.temperature,
                     response_format=self.response_format,
                 )
+                self.last_debug["raw"] = raw
                 action = self.parser.parse(raw, role=role, obs=obs)
                 self._remember(obs, action, raw)
+                self.last_debug["action"] = dict(action)
                 return action
             except Exception as exc:  # noqa: BLE001 - retry on parser/client failures
                 last_error = exc
+                self.last_debug["error"] = repr(exc)
                 messages.append({"role": "assistant", "content": raw if "raw" in locals() else ""})
                 messages.append({"role": "user", "content": self._repair_prompt(role, exc)})
                 if attempt < int(self.max_retries) and self.retry_sleep > 0:
@@ -314,6 +327,13 @@ class LLMAgent(BaseAgent):
         if self.fallback_on_error:
             action = fallback_action(obs, role=role)
             self._remember(obs, action, f"FALLBACK_AFTER_ERROR: {last_error}")
+            self.last_debug.update(
+                {
+                    "fallback": True,
+                    "fallback_reason": repr(last_error),
+                    "action": dict(action),
+                }
+            )
             return action
         raise AgentActionParseError(f"LLM Agent 生成动作失败: {last_error}")
 

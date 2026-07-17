@@ -292,6 +292,32 @@ class AgentMarketEnv:
             "增益": round(float(h.gain), 4),
         }
 
+    def transaction_history(self) -> List[Dict[str, Any]]:
+        """返回每一轮真实交易结果。
+
+        这份日志不区分该轮价格或报价来自规则还是 Agent，只记录最终进入市场机制
+        结算的价格、报价和效用结果，因此适合用于跨模式对齐分析和画图。
+        """
+        if self._env is None:
+            return []
+        rows = []
+        for idx, h in enumerate(self._env.history):
+            buyer = self.buyers[idx] if idx < len(self.buyers) else None
+            rows.append(
+                {
+                    "round_index": idx,
+                    "buyer_id": buyer.buyer_id if buyer is not None else "",
+                    "price": round(float(h.price), 4),
+                    "bid": round(float(h.bid), 4),
+                    "buyer_utility": round(float(h.buyer_utility), 6),
+                    "platform_utility": round(float(h.platform_utility), 6),
+                    "seller_utilities": [round(float(u), 6) for u in h.seller_utilities],
+                    "platform_revenue": round(float(h.revenue), 6),
+                    "gain": round(float(h.gain), 4),
+                }
+            )
+        return rows
+
     def ground_truth(self) -> Dict[str, Any]:
         """理论均衡基准（假设所有买家诚实报价 b=mu，平台定价 p*）。"""
         if self._env is None:

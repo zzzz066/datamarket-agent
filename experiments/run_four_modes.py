@@ -41,6 +41,9 @@ def _load_package_when_run_as_script() -> Any:
     """
 
     root = Path(__file__).resolve().parents[1]
+    root_str = str(root)
+    if root_str not in sys.path:
+        sys.path.insert(0, root_str)
     package_name = "marketplace_for_data_agent"
     if package_name in sys.modules:
         return sys.modules[package_name]
@@ -181,6 +184,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--shapley-permutations", type=int, default=64)
     parser.add_argument("--lambda-penalty", type=float, default=0.7)
     parser.add_argument("--plot", action="store_true", help="如果 matplotlib 可用，则生成标准图表。")
+    parser.add_argument("--verbose", action="store_true", help="打印每个模式、轮次和 Agent 调用进度。")
     return parser.parse_args()
 
 
@@ -217,6 +221,7 @@ def main() -> None:
         noise_sigma=args.noise_sigma,
         shapley_permutations=args.shapley_permutations,
         lambda_penalty=args.lambda_penalty,
+        verbose=args.verbose,
     )
     paths = save_analysis(results, out, epsilon=args.epsilon)
 
@@ -224,6 +229,8 @@ def main() -> None:
     print(f"运行模式: {', '.join(results.keys())}")
     print("输出文件:")
     for name, path in paths.items():
+        if name == "mode_files":
+            continue
         print(f"  {name}: {path}")
 
     if args.plot:
@@ -238,6 +245,7 @@ def main() -> None:
                 make_summary_table(results, epsilon=args.epsilon),
                 make_step_table(results),
                 out / "figures",
+                epsilon=args.epsilon,
             )
         except ModuleNotFoundError as exc:
             if exc.name == "matplotlib":

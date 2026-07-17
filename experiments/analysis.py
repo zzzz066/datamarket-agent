@@ -154,27 +154,71 @@ def make_summary_table(
 def make_step_table(results: Mapping[str, EpisodeRunResult]) -> list[Dict[str, Any]]:
     """生成逐轮轨迹表。
 
-    该表用于绘制价格、报价、数据增益、平台收入和效用轨迹。
+    该表按真实交易轮次记录，而不是按 Agent 决策步记录。
+    因此 all_rule 和混合模式中的规则侧行为也会被纳入同一条时间轴。
     """
 
     rows = []
     for mode, result in results.items():
-        for step in result.steps:
-            reward = step.reward or {}
+        for item in result.rounds:
             rows.append(
                 {
                     "mode": mode,
-                    "step_index": step.step_index,
-                    "role": step.role,
-                    "price": reward.get("价格"),
-                    "bid": reward.get("报价"),
-                    "buyer_utility": reward.get("买家效用"),
-                    "platform_utility": reward.get("平台效用"),
-                    "seller_utilities": reward.get("卖家效用"),
-                    "platform_revenue": reward.get("平台收入"),
-                    "gain": reward.get("增益"),
+                    "step_index": item.round_index,
+                    "round_index": item.round_index,
+                    "buyer_id": item.buyer_id,
+                    "price": item.price,
+                    "bid": item.bid,
+                    "buyer_utility": item.buyer_utility,
+                    "platform_utility": item.platform_utility,
+                    "seller_utilities": item.seller_utilities,
+                    "platform_revenue": item.platform_revenue,
+                    "gain": item.gain,
                 }
             )
+    return rows
+
+
+def make_single_step_table(mode: str, result: EpisodeRunResult) -> list[Dict[str, Any]]:
+    """生成单个实验模式的逐轮轨迹表。
+
+    单模式日志不再重复保存 mode 字段，便于人工查看。
+    """
+
+    rows = []
+    for item in result.rounds:
+        rows.append(
+            {
+                "step_index": item.round_index,
+                "round_index": item.round_index,
+                "buyer_id": item.buyer_id,
+                "price": item.price,
+                "bid": item.bid,
+                "buyer_utility": item.buyer_utility,
+                "platform_utility": item.platform_utility,
+                "seller_utilities": item.seller_utilities,
+                "platform_revenue": item.platform_revenue,
+                "gain": item.gain,
+            }
+        )
+    return rows
+
+
+def make_decision_step_table(result: EpisodeRunResult) -> list[Dict[str, Any]]:
+    """生成 Agent 决策日志表，用于检查 Agent 看到什么、输出什么。"""
+
+    rows = []
+    for step in result.steps:
+        rows.append(
+            {
+                "step_index": step.step_index,
+                "role": step.role,
+                "observation": json.dumps(step.observation, ensure_ascii=False),
+                "action": json.dumps(step.action, ensure_ascii=False),
+                "reward": json.dumps(step.reward, ensure_ascii=False),
+                "agent_debug": json.dumps(step.agent_debug, ensure_ascii=False),
+            }
+        )
     return rows
 
 
@@ -192,15 +236,14 @@ def make_chart_payload(results: Mapping[str, EpisodeRunResult]) -> Dict[str, Any
             "buyer_utility": [],
             "platform_utility": [],
         }
-        for step in result.steps:
-            reward = step.reward or {}
-            series["step_index"].append(step.step_index)
-            series["price"].append(reward.get("价格"))
-            series["bid"].append(reward.get("报价"))
-            series["gain"].append(reward.get("增益"))
-            series["platform_revenue"].append(reward.get("平台收入"))
-            series["buyer_utility"].append(reward.get("买家效用"))
-            series["platform_utility"].append(reward.get("平台效用"))
+        for item in result.rounds:
+            series["step_index"].append(item.round_index)
+            series["price"].append(item.price)
+            series["bid"].append(item.bid)
+            series["gain"].append(item.gain)
+            series["platform_revenue"].append(item.platform_revenue)
+            series["buyer_utility"].append(item.buyer_utility)
+            series["platform_utility"].append(item.platform_utility)
         payload[mode] = series
     return payload
 
@@ -267,6 +310,7 @@ def save_analysis(
     analysis_path = out / "analysis_summary.json"
     summary_csv_path = out / "summary_table.csv"
     step_csv_path = out / "step_table.csv"
+    modes_dir = out / "modes"
 
     with raw_path.open("w", encoding="utf-8") as f:
         json.dump(
@@ -304,9 +348,59 @@ def save_analysis(
             writer.writeheader()
             writer.writerows(step_rows)
 
+    mode_paths: Dict[str, Dict[str, str]] = {}
+    modes_dir.mkdir(parents=True, exist_ok=True)
+    for mode, result in results.items():
+        mode_dir = modes_dir / mode
+        mode_dir.mkdir(parents=True, exist_ok=True)
+        mode_json_path = mode_dir / "episode.json"
+        mode_rounds_path = mode_dir / "rounds.csv"
+        mode_decision_steps_path = mode_dir / "decision_steps.csv"
+        mode_summary_path = mode_dir / "summary.json"
+
+        with mode_json_path.open("w", encoding="utf-8") as f:
+            json.dump(episode_to_dict(result), f, ensure_ascii=False, indent=2)
+        with mode_summary_path.open("w", encoding="utf-8") as f:
+            json.dump(result.summary, f, ensure_ascii=False, indent=2)
+
+        mode_step_rows = make_single_step_table(mode, result)
+        round_fieldnames = [
+            "step_index",
+            "round_index",
+            "buyer_id",
+            "price",
+            "bid",
+            "buyer_utility",
+            "platform_utility",
+            "seller_utilities",
+            "platform_revenue",
+            "gain",
+        ]
+        with mode_rounds_path.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=round_fieldnames)
+            writer.writeheader()
+            writer.writerows(mode_step_rows)
+
+        mode_decision_rows = make_decision_step_table(result)
+        with mode_decision_steps_path.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.DictWriter(
+                f,
+                fieldnames=["step_index", "role", "observation", "action", "reward", "agent_debug"],
+            )
+            writer.writeheader()
+            writer.writerows(mode_decision_rows)
+        mode_paths[mode] = {
+            "episode": str(mode_json_path),
+            "summary": str(mode_summary_path),
+            "rounds": str(mode_rounds_path),
+            "decision_steps": str(mode_decision_steps_path),
+        }
+
     return {
         "raw": str(raw_path),
         "analysis": str(analysis_path),
         "summary_csv": str(summary_csv_path),
         "step_csv": str(step_csv_path),
+        "modes_dir": str(modes_dir),
+        "mode_files": mode_paths,
     }

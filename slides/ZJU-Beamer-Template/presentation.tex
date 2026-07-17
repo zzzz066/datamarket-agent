@@ -510,27 +510,6 @@
 
 \end{frame}
 
-\begin{frame}
-  \frametitle{信息控制}
-  实验提供统一接口：
-  \[
-    \texttt{agent.act(obs)} \rightarrow \texttt{action}
-  \]
-
-  \vspace{0.25cm}
-  观测信息按角色构造：
-  \begin{itemize}
-    \item 平台侧可见当前轮次、总轮次、候选价格、卖家数量、最近历史；
-    \item 买家侧可见当前轮次、总轮次、自身估值 $\mu$、当前价格、自身历史；
-  \end{itemize}
-
-  \vspace{0.25cm}
-  当前可被 Agent 接管的两个决策点：
-  \begin{itemize}
-    \item 平台侧定价：\texttt{\{"价格": p\}}
-    \item 买家侧报价：\texttt{\{"报价": b\}}
-  \end{itemize}
-\end{frame}
 
 \begin{frame}
 	\frametitle{实验记录与模块输出}
@@ -549,39 +528,90 @@
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-	\frametitle{分析目标}
-  \begin{block}{核心问题}
-    Agent 接入后，市场结果相对规则基准组发生了怎样的变化？
-  \end{block}
 
-  \vspace{0.3cm}
-  数据分析主要比较：
+\begin{frame}
+  \frametitle{实验结果：相对效用差距对比}
+  \begin{table}[h]
+    \centering
+    \small
+    \begin{tabular}{lcccc}
+      \toprule
+      模式 & 平台总效用 & 平台相对差距 & 买家平均效用 & 买家相对差距 \\
+      \midrule
+      \texttt{all\_rule}     & 12.961 & 0.00\%  & 0.475 & 0.00\%  \\
+      \texttt{seller\_agent} & 12.566 & 3.05\%  & 0.508 & 6.84\%  \\
+      \texttt{buyer\_agent}  & 9.367  & 27.73\% & 0.534 & 12.34\% \\
+      \texttt{both\_agent}   & 11.499 & 11.28\% & 0.525 & 10.41\% \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\begin{frame}{买家Agent的低报行为分析}
   \begin{itemize}
-    \item 不同模式下的平台总效用；
-    \item 不同模式下的买家平均效用；
-    \item Agent 是否改变价格、报价、数据增益和平台收入的动态轨迹。
+    \item \textbf{LLM 买家 Agent 的策略并不复杂。}
+    
+    买家主要根据自身估值 $\mu$ 与平台价格 $p$ 的大小关系决策：
+    当 $p < \mu$ 时倾向于诚实报价；当 $p > \mu$ 时倾向于低报避险。
+    
+    \vspace{0.15cm}
+    \begin{figure}
+		\centering
+		\includegraphics[width=0.88\linewidth]{reason_buyer_price_mu_rule.png}
+	\end{figure}
+
   \end{itemize}
 \end{frame}
 
-\begin{frame}
-	\frametitle{基准组与指标定义}
-  以下分析以 \texttt{all\_rule} 作为基准组：
-  \[
-    \texttt{all\_rule}=\text{MWU 定价}+\text{买家诚实报价}
-  \]
 
-  \vspace{0.3cm}
-  Utility Gap 定义为：
-  \[
-    \text{Utility Gap}=\text{规则基准组效用}-\text{当前模式效用}
-  \]
+\begin{frame}{平台 Agent 的价格探索过程}
+  \begin{itemize}
+    \item \textbf{LLM 平台 Agent 表现出价格探索能力。}
+    
+    在 \texttt{seller\_agent} 模式下，平台 Agent 从 $0.5$ 逐步试探到 $0.85$，
+    随后回落并稳定在 $0.8$。
+    
+    \item 该策略低于规则基准的平均价格 $1.042$，体现出偏保守的
+    ``薄利多销'' 定价倾向。
+    
+    \vspace{0.15cm}
+    \begin{block}{主要发现}
+		平台 Agent 不是复现 MWU 规则，而是通过少量探索后锁定 $p \approx 0.8$，
+		在平台收入和买家参与之间形成更保守的稳定价格。
+	\end{block}
+  \end{itemize}
+\end{frame}
 
-  Pass@epsilon 用于判断某个模式是否足够接近规则基准组：
-  \[
-    |\texttt{platform\_gap}| \leq \epsilon,\quad
-    |\texttt{buyer\_average\_gap}| \leq \epsilon
-  \]
+\begin{frame}{双边 Agent 的交互效应}
+  \begin{block}{关键发现}
+    双边 Agent 并不是简单叠加负面影响。平台 Agent 将价格稳定在 $p=0.8$ 后，
+    改变了买家 Agent 面对的报价环境，从而降低了低报发生频率。
+  \end{block}
+
+  \vspace{0.2cm}
+  \begin{columns}
+    \begin{column}{0.50\textwidth}
+      \small
+      \begin{tabular}{lcc}
+        \toprule
+        模式 & 诚实报价 & 低报 \\
+        \midrule
+        \texttt{buyer\_agent} & 14/50 & 35/50 \\
+        \texttt{both\_agent}  & 31/50 & 18/50 \\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+
+    \begin{column}{0.46\textwidth}
+      \small
+      \begin{itemize}
+        \item MWU 定价多在 $1.05$--$1.15$，较多买家满足 $\mu < p$。
+        \item LLM 平台定价稳定在 $p=0.8$ 后，更多买家满足 $\mu \ge p$。
+        \item 因此买家从低报避险转向诚实报价。
+      \end{itemize}
+    \end{column}
+  \end{columns}
+
 \end{frame}
 
 % ============================================================

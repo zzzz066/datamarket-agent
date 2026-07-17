@@ -130,23 +130,24 @@
 	\begin{center}
 		\footnotesize
 		\renewcommand{\arraystretch}{1.6}
-		\begin{tabular}{p{2.2cm}|p{2.8cm}|p{7cm}}
+		\begin{tabular}{p{2.5cm}|p{2.5cm}|p{7cm}}
 			\toprule
 			\textbf{机制} & \textbf{应对的挑战} & \textbf{设计逻辑} \\
 			\midrule
-			AF（数据分配） & 事前不可验证 & 买方不接触原始数据：平台统一训练模型输出预测，避免数据泄露 \\
+			Allocation Function（数据分配） & 事前不可验证 & 买方不接触原始数据：平台统一训练模型输出预测，避免数据泄露 \\
 			\midrule
-			RF（Myerson 支付） & 策略性谎报 & Myerson 支付函数数学上保证 $b_n = \mu_n$ 是占优策略：诚实报价收益最高 \\
+			Myerson Revenue Function（支付） & 策略性谎报 & Myerson 支付函数数学上保证 $b_n = \mu_n$ 是占优策略：诚实报价收益最高 \\
 			\midrule
-			PF（MWU 定价） & 最优价格未知 & MWU 在候选价格网格上实现 no-regret：价格自动收敛至最优 \\
+			Price Update / MWU（定价） & 最优价格未知 & MWU 在候选价格网格上实现 no-regret：价格自动收敛至最优 \\
 			\midrule
-			PD（Shapley 分配） & 可复制 + 组合价值 & Shapley 值衡量边际贡献；余弦相似度指数惩罚复制数据 \\
+			Payment Division / Shapley（分配） & 可复制 + 组合价值 & Shapley 值衡量边际贡献；余弦相似度指数惩罚复制数据 \\
 			\bottomrule
 		\end{tabular}
 	\end{center}
 
 \end{frame}
 
+% --- 仿真截图 ---
 % --- 仿真截图 ---
 \begin{frame}
 	\frametitle{机制仿真：理论结果复现}
@@ -178,6 +179,8 @@
 	\end{center}
 \end{frame}
 
+
+
 % ============================================================
 % Section 2: 我们的方法
 % ============================================================
@@ -187,34 +190,20 @@
 	\frametitle{用 LLM Agent 模拟真实市场参与者}
 
 	\begin{block}{核心思路}
-		保持论文的\textbf{市场机制完全不变}（AF / RF / PF / PD 照原样实现），\\
-		把规则化的买卖双方替换为 \textbf{LLM Agent}，观察行为偏差。
+		保持论文的\textbf{市场机制完全不变}，把规则化的买卖双方替换为 \textbf{LLM Agent}，观察行为偏差：
+		\begin{itemize}
+			\item 买家 Agent 面对价格决定报价策略
+			\item 平台 Agent 根据市场反馈调整定价
+			\item 对比理论最优 vs.\ LLM Agent 的行为差异
+		\end{itemize}
 	\end{block}
 
-	\begin{columns}[T]
-		\begin{column}{0.48\textwidth}
-			\begin{exampleblock}{买家 Agent（LLM）}
-				\textbf{看到}：当前价格 $p_n$、数据描述、历史成交、自己的估值 $\mu_n$、预算\\
-				\textbf{决策}：报价 $b_n$ + 决策理由\\
-				\textbf{研究}：Agent 会诚实报价吗？什么因素导致偏离？
-			\end{exampleblock}
-		\end{column}
-		\begin{column}{0.48\textwidth}
-			\begin{exampleblock}{卖家 Agent（LLM）}
-				\textbf{看到}：自己的数据特征、历史分成、市场行情\\
-				\textbf{决策}：是否复制数据、是否调整数据质量\\
-				\textbf{研究}：Shapley 惩罚能否阻止 Agent 的复制行为？
-			\end{exampleblock}
-		\end{column}
-	\end{columns}
-
-	\pause
 	\vspace{0.3cm}
 	\begin{center}
-		\textbf{对比实验}：理论最优vs.\ LLM Agent $\rightarrow$ 测量行为偏差 $\rightarrow$ 提出机制改进
+		\textbf{核心方法}：四模式对比实验（all\_rule / seller\_agent / buyer\_agent / both\_agent）\\
+		$\rightarrow$ 测量 Utility Gap $\rightarrow$ 定位机制偏差 $\rightarrow$ 提出改进
 	\end{center}
 \end{frame}
-
 \begin{frame}
 	\frametitle{核心研究问题}
 
@@ -244,13 +233,6 @@
 		      \begin{itemize}
 			      \item 基于 Agent 的行为偏差，解释机制为什么有问题
 			      \item 探索更贴近现实的合理市场机制设计
-		      \end{itemize}
-		
-		\pause
-		\item \textbf{私有估值假设与竞争外部性}
-		      \begin{itemize}
-			      \item 当引入商业竞争（对手购买同一数据）时，Agent 的估值是否会发生动态耦合？
-			      \item 在存在竞争外部性（非私有估值）时，原本保证诚实的 Myerson 机制是否会面临失效？
 		      \end{itemize}
 	\end{enumerate}
 \end{frame}
@@ -587,24 +569,37 @@
 % ============================================================
 % Section 5: 后续计划 (待填写)
 % ============================================================
+% ============================================================
+% Section 5: 后续计划
+% ============================================================
 \section{后续计划}
 
 \begin{frame}
 	\frametitle{后续计划}
 
-	\begin{center}
-		\vspace{2cm}
-		{\Large \color{black!50}（待填写）}
+	\begin{enumerate}
+		\item \textbf{Prompt 与模型消融 + 参数敏感性}
+		      \begin{itemize}
+			      \item 对比不同的 prompt（balanced / strategic / truthful等）对 Agent 报价行为的影响
+			      \item 更换模型，观察不同 LLM 的决策差异
+			      \item 扫描关键参数，评估机制对参数漂移的鲁棒性
+		      \end{itemize}
 
-		\vspace{1cm}
-		\textit{--- LLM Agent 集成、信息披露实验、Trial 机制、论文撰写等 ---}
+		\vspace{0.3cm}
+		\item \textbf{多轮博弈与合谋行为}
+		      \begin{itemize}
+			      \item 同一买家 ID 多轮反复交易，观察 Agent 是否会学会集体压低报价
+			      \item 检验 MWU 定价在策略性 Agent 持续博弈下是否仍然收敛
+		      \end{itemize}
 
-	\end{center}
+		\vspace{0.3cm}
+		\item \textbf{机制改进}
+		      \begin{itemize}
+			      \item 基于实验发现（LLM 平台 0.8 优于 MWU 1.05--1.15），探索用 LLM agent替代 MWU 定价的可行性……
+		      \end{itemize}
+	\end{enumerate}
 \end{frame}
 
-% ============================================================
-% 参考文献
-% ============================================================
 \section{参考文献}
 
 \begin{frame}[allowframebreaks]

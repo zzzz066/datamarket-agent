@@ -10,7 +10,10 @@ from agents.base import (
     ShadeBuyerAgent,
     TruthfulBuyerAgent,
     LLMAgent,
+    default_system_prompt,
     fallback_action,
+    output_schema_for_role,
+    profile_guidance,
 )
 
 
@@ -79,6 +82,28 @@ class LLMAgentTest(unittest.TestCase):
         self.assertEqual(action, {"报价": 0.75})
         self.assertEqual(client.calls[0]["model"], "fake-model")
         self.assertEqual(client.calls[0]["response_format"], {"type": "json_object"})
+
+    def test_prompt_profile_is_sent_to_client(self) -> None:
+        client = FakeClient('{"reasoning":"策略性低报", "报价": 0.55}')
+        agent = LLMAgent(
+            client=client,
+            model="fake-model",
+            role="买家",
+            prompt_profile="strategic",
+            retry_sleep=0,
+        )
+        action = agent.act({"当前轮次": 1, "我的估值_mu": 0.8, "当前平台价格": 0.6})
+        self.assertEqual(action, {"报价": 0.55})
+        system_msg = client.calls[0]["messages"][0]["content"]
+        user_msg = client.calls[0]["messages"][1]["content"]
+        self.assertIn("Profile: strategic", system_msg)
+        self.assertIn("Prompt profile: strategic", user_msg)
+        self.assertIn("输出 JSON schema", user_msg)
+
+    def test_prompt_helpers(self) -> None:
+        self.assertEqual(output_schema_for_role("平台"), {"reasoning": "一句话说明定价依据", "价格": 0.8})
+        self.assertIn("诚实报价", profile_guidance("买家", "truthful"))
+        self.assertIn("平台定价 Agent", default_system_prompt("平台", profile="revenue_max"))
 
 
 if __name__ == "__main__":

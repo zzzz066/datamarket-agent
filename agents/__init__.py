@@ -13,8 +13,12 @@ from .base import (
     ShadeBuyerAgent,
     TruthfulBuyerAgent,
     default_system_prompt,
+    default_user_prompt,
     fallback_action,
     infer_role_from_obs,
+    observation_contract,
+    output_schema_for_role,
+    profile_guidance,
 )
 
 __all__ = [
@@ -30,6 +34,10 @@ __all__ = [
     "ShadeBuyerAgent",
     "TruthfulBuyerAgent",
     "default_system_prompt",
+    "default_user_prompt",
     "fallback_action",
     "infer_role_from_obs",
+    "observation_contract",
+    "output_schema_for_role",
+    "profile_guidance",
 ]

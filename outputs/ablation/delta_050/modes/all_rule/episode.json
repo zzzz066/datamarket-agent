@@ -1,0 +1,832 @@
+{
+  "steps": [],
+  "rounds": [
+    {
+      "round_index": 0,
+      "buyer_id": "buyer_1",
+      "price": 0.1,
+      "bid": 1.074,
+      "buyer_utility": 1.005753,
+      "platform_utility": 0.040996,
+      "seller_utilities": [
+        -0.015044,
+        -0.02,
+        -0.016823
+      ],
+      "platform_revenue": 0.049129,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 1,
+      "buyer_id": "buyer_2",
+      "price": 1.05,
+      "bid": 0.7389,
+      "buyer_utility": 0.432214,
+      "platform_utility": 0.201381,
+      "seller_utilities": [
+        -0.001983,
+        -0.019959,
+        -0.004815
+      ],
+      "platform_revenue": 0.234625,
+      "gain": 0.9025
+    },
+    {
+      "round_index": 2,
+      "buyer_id": "buyer_3",
+      "price": 1.05,
+      "bid": 1.1586,
+      "buyer_utility": 0.622344,
+      "platform_utility": 0.430311,
+      "seller_utilities": [
+        0.024016,
+        -0.019998,
+        0.021348
+      ],
+      "platform_revenue": 0.515677,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 3,
+      "buyer_id": "buyer_4",
+      "price": 1.1,
+      "bid": 0.9974,
+      "buyer_utility": 0.52362,
+      "platform_utility": 0.36629,
+      "seller_utilities": [
+        0.006983,
+        -0.019992,
+        0.020968
+      ],
+      "platform_revenue": 0.434249,
+      "gain": 0.9604
+    },
+    {
+      "round_index": 4,
+      "buyer_id": "buyer_5",
+      "price": 1.05,
+      "bid": 0.3942,
+      "buyer_utility": 0.257207,
+      "platform_utility": 0.053127,
+      "seller_utilities": [
+        -0.016697,
+        -0.019715,
+        -0.01728
+      ],
+      "platform_revenue": 0.059435,
+      "gain": 0.8033
+    },
+    {
+      "round_index": 5,
+      "buyer_id": "buyer_6",
+      "price": 1.05,
+      "bid": 1.2756,
+      "buyer_utility": 0.73729,
+      "platform_utility": 0.430311,
+      "seller_utilities": [
+        0.021348,
+        -0.019998,
+        0.024016
+      ],
+      "platform_revenue": 0.515677,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 6,
+      "buyer_id": "buyer_7",
+      "price": 1.1,
+      "bid": 1.0611,
+      "buyer_utility": 0.536513,
+      "platform_utility": 0.419063,
+      "seller_utilities": [
+        0.022725,
+        -0.019994,
+        0.018104
+      ],
+      "platform_revenue": 0.499899,
+      "gain": 0.9767
+    },
+    {
+      "round_index": 7,
+      "buyer_id": "buyer_8",
+      "price": 1.05,
+      "bid": 1.0861,
+      "buyer_utility": 0.551097,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.021348,
+        -0.019998,
+        0.024016
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 8,
+      "buyer_id": "buyer_9",
+      "price": 1.1,
+      "bid": 0.4281,
+      "buyer_utility": 0.272536,
+      "platform_utility": 0.059564,
+      "seller_utilities": [
+        -0.017222,
+        -0.019969,
+        -0.016525
+      ],
+      "platform_revenue": 0.065849,
+      "gain": 0.7904
+    },
+    {
+      "round_index": 9,
+      "buyer_id": "buyer_10",
+      "price": 1.1,
+      "bid": 0.7504,
+      "buyer_utility": 0.437321,
+      "platform_utility": 0.197654,
+      "seller_utilities": [
+        -0.00683,
+        -0.019901,
+        -0.004546
+      ],
+      "platform_revenue": 0.226377,
+      "gain": 0.8845
+    },
+    {
+      "round_index": 10,
+      "buyer_id": "buyer_11",
+      "price": 1.05,
+      "bid": 0.6708,
+      "buyer_utility": 0.398919,
+      "platform_utility": 0.165978,
+      "seller_utilities": [
+        -0.009464,
+        -0.019887,
+        -0.009394
+      ],
+      "platform_revenue": 0.187233,
+      "gain": 0.8738
+    },
+    {
+      "round_index": 11,
+      "buyer_id": "buyer_12",
+      "price": 1.05,
+      "bid": 1.2268,
+      "buyer_utility": 0.689299,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.020014,
+        -0.019998,
+        0.025349
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 12,
+      "buyer_id": "buyer_13",
+      "price": 1.1,
+      "bid": 0.9439,
+      "buyer_utility": 0.510048,
+      "platform_utility": 0.325246,
+      "seller_utilities": [
+        0.014416,
+        -0.019967,
+        0.003558
+      ],
+      "platform_revenue": 0.383253,
+      "gain": 0.9464
+    },
+    {
+      "round_index": 13,
+      "buyer_id": "buyer_14",
+      "price": 1.05,
+      "bid": 1.1228,
+      "buyer_utility": 0.587143,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.028017,
+        -0.019998,
+        0.017347
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 14,
+      "buyer_id": "buyer_15",
+      "price": 1.1,
+      "bid": 0.7434,
+      "buyer_utility": 0.435134,
+      "platform_utility": 0.192138,
+      "seller_utilities": [
+        -0.004994,
+        -0.019964,
+        -0.005096
+      ],
+      "platform_revenue": 0.222084,
+      "gain": 0.8841
+    },
+    {
+      "round_index": 15,
+      "buyer_id": "buyer_16",
+      "price": 1.05,
+      "bid": 0.5272,
+      "buyer_utility": 0.329099,
+      "platform_utility": 0.097455,
+      "seller_utilities": [
+        -0.01452,
+        -0.019983,
+        -0.012627
+      ],
+      "platform_revenue": 0.110324,
+      "gain": 0.8334
+    },
+    {
+      "round_index": 16,
+      "buyer_id": "buyer_17",
+      "price": 1.05,
+      "bid": 0.8546,
+      "buyer_utility": 0.470724,
+      "platform_utility": 0.275853,
+      "seller_utilities": [
+        -0.002946,
+        -0.019984,
+        0.01008
+      ],
+      "platform_revenue": 0.323004,
+      "gain": 0.9288
+    },
+    {
+      "round_index": 17,
+      "buyer_id": "buyer_18",
+      "price": 1.05,
+      "bid": 0.3638,
+      "buyer_utility": 0.236931,
+      "platform_utility": 0.04473,
+      "seller_utilities": [
+        -0.018379,
+        -0.019901,
+        -0.016802
+      ],
+      "platform_revenue": 0.049649,
+      "gain": 0.7877
+    },
+    {
+      "round_index": 18,
+      "buyer_id": "buyer_19",
+      "price": 1.05,
+      "bid": 1.1276,
+      "buyer_utility": 0.591926,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.033352,
+        -0.019998,
+        0.012011
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 19,
+      "buyer_id": "buyer_20",
+      "price": 1.05,
+      "bid": 0.9317,
+      "buyer_utility": 0.493781,
+      "platform_utility": 0.334217,
+      "seller_utilities": [
+        0.015943,
+        -0.019904,
+        0.0035
+      ],
+      "platform_revenue": 0.393756,
+      "gain": 0.9526
+    },
+    {
+      "round_index": 20,
+      "buyer_id": "buyer_21",
+      "price": 1.05,
+      "bid": 1.0581,
+      "buyer_utility": 0.523619,
+      "platform_utility": 0.430311,
+      "seller_utilities": [
+        0.01868,
+        -0.019998,
+        0.026683
+      ],
+      "platform_revenue": 0.515676,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 21,
+      "buyer_id": "buyer_22",
+      "price": 1.05,
+      "bid": 0.6545,
+      "buyer_utility": 0.392405,
+      "platform_utility": 0.155952,
+      "seller_utilities": [
+        -0.008976,
+        -0.01988,
+        -0.009411
+      ],
+      "platform_revenue": 0.177685,
+      "gain": 0.871
+    },
+    {
+      "round_index": 22,
+      "buyer_id": "buyer_23",
+      "price": 1.05,
+      "bid": 1.2707,
+      "buyer_utility": 0.732452,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.033352,
+        -0.019998,
+        0.012011
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 23,
+      "buyer_id": "buyer_24",
+      "price": 1.05,
+      "bid": 1.1931,
+      "buyer_utility": 0.656252,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.028017,
+        -0.019998,
+        0.017347
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 24,
+      "buyer_id": "buyer_25",
+      "price": 1.05,
+      "bid": 1.0784,
+      "buyer_utility": 0.543553,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.016013,
+        -0.019998,
+        0.029351
+      ],
+      "platform_revenue": 0.515677,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 25,
+      "buyer_id": "buyer_26",
+      "price": 1.1,
+      "bid": 0.4946,
+      "buyer_utility": 0.318649,
+      "platform_utility": 0.081136,
+      "seller_utilities": [
+        -0.01474,
+        -0.019853,
+        -0.014119
+      ],
+      "platform_revenue": 0.092424,
+      "gain": 0.8311
+    },
+    {
+      "round_index": 26,
+      "buyer_id": "buyer_27",
+      "price": 1.05,
+      "bid": 0.7667,
+      "buyer_utility": 0.434909,
+      "platform_utility": 0.217707,
+      "seller_utilities": [
+        -0.002375,
+        -0.019956,
+        -0.005275
+      ],
+      "platform_revenue": 0.2501,
+      "gain": 0.8934
+    },
+    {
+      "round_index": 27,
+      "buyer_id": "buyer_28",
+      "price": 1.05,
+      "bid": 0.3438,
+      "buyer_utility": 0.227112,
+      "platform_utility": 0.04055,
+      "seller_utilities": [
+        -0.018492,
+        -0.019815,
+        -0.017782
+      ],
+      "platform_revenue": 0.044461,
+      "gain": 0.7899
+    },
+    {
+      "round_index": 28,
+      "buyer_id": "buyer_29",
+      "price": 1.05,
+      "bid": 0.4543,
+      "buyer_utility": 0.284856,
+      "platform_utility": 0.070883,
+      "seller_utilities": [
+        -0.015973,
+        -0.019934,
+        -0.016343
+      ],
+      "platform_revenue": 0.078633,
+      "gain": 0.8001
+    },
+    {
+      "round_index": 29,
+      "buyer_id": "buyer_30",
+      "price": 1.05,
+      "bid": 0.983,
+      "buyer_utility": 0.509846,
+      "platform_utility": 0.37573,
+      "seller_utilities": [
+        0.014474,
+        -0.019873,
+        0.018393
+      ],
+      "platform_revenue": 0.448725,
+      "gain": 0.9751
+    },
+    {
+      "round_index": 30,
+      "buyer_id": "buyer_31",
+      "price": 1.05,
+      "bid": 1.0448,
+      "buyer_utility": 0.515702,
+      "platform_utility": 0.42603,
+      "seller_utilities": [
+        0.028942,
+        -0.019998,
+        0.015609
+      ],
+      "platform_revenue": 0.510582,
+      "gain": 0.9823
+    },
+    {
+      "round_index": 31,
+      "buyer_id": "buyer_32",
+      "price": 1.05,
+      "bid": 1.2675,
+      "buyer_utility": 0.72932,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.01868,
+        -0.019998,
+        0.026683
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 32,
+      "buyer_id": "buyer_33",
+      "price": 1.05,
+      "bid": 0.6258,
+      "buyer_utility": 0.382278,
+      "platform_utility": 0.142426,
+      "seller_utilities": [
+        -0.009203,
+        -0.019633,
+        -0.011303
+      ],
+      "platform_revenue": 0.162287,
+      "gain": 0.8702
+    },
+    {
+      "round_index": 33,
+      "buyer_id": "buyer_34",
+      "price": 1.05,
+      "bid": 0.6705,
+      "buyer_utility": 0.39836,
+      "platform_utility": 0.163796,
+      "seller_utilities": [
+        -0.008922,
+        -0.01996,
+        -0.008083
+      ],
+      "platform_revenue": 0.186832,
+      "gain": 0.8728
+    },
+    {
+      "round_index": 34,
+      "buyer_id": "buyer_35",
+      "price": 1.05,
+      "bid": 0.7696,
+      "buyer_utility": 0.441825,
+      "platform_utility": 0.219447,
+      "seller_utilities": [
+        0.000744,
+        -0.019914,
+        -0.004717
+      ],
+      "platform_revenue": 0.255561,
+      "gain": 0.9062
+    },
+    {
+      "round_index": 35,
+      "buyer_id": "buyer_36",
+      "price": 1.05,
+      "bid": 0.4895,
+      "buyer_utility": 0.315036,
+      "platform_utility": 0.084538,
+      "seller_utilities": [
+        -0.014397,
+        -0.019995,
+        -0.0144
+      ],
+      "platform_revenue": 0.095746,
+      "gain": 0.8392
+    },
+    {
+      "round_index": 36,
+      "buyer_id": "buyer_37",
+      "price": 1.05,
+      "bid": 0.4299,
+      "buyer_utility": 0.289622,
+      "platform_utility": 0.066024,
+      "seller_utilities": [
+        -0.016515,
+        -0.019853,
+        -0.0151
+      ],
+      "platform_revenue": 0.074556,
+      "gain": 0.8471
+    },
+    {
+      "round_index": 37,
+      "buyer_id": "buyer_38",
+      "price": 1.05,
+      "bid": 0.7757,
+      "buyer_utility": 0.440265,
+      "platform_utility": 0.223823,
+      "seller_utilities": [
+        -0.001473,
+        -0.019874,
+        -0.004591
+      ],
+      "platform_revenue": 0.257885,
+      "gain": 0.9
+    },
+    {
+      "round_index": 38,
+      "buyer_id": "buyer_39",
+      "price": 1.05,
+      "bid": 0.5269,
+      "buyer_utility": 0.330601,
+      "platform_utility": 0.096839,
+      "seller_utilities": [
+        -0.014036,
+        -0.019993,
+        -0.012075
+      ],
+      "platform_revenue": 0.110735,
+      "gain": 0.8376
+    },
+    {
+      "round_index": 39,
+      "buyer_id": "buyer_40",
+      "price": 1.05,
+      "bid": 0.9698,
+      "buyer_utility": 0.505593,
+      "platform_utility": 0.364549,
+      "seller_utilities": [
+        0.021923,
+        -0.019957,
+        0.007335
+      ],
+      "platform_revenue": 0.43385,
+      "gain": 0.9687
+    },
+    {
+      "round_index": 40,
+      "buyer_id": "buyer_41",
+      "price": 1.05,
+      "bid": 0.7372,
+      "buyer_utility": 0.429535,
+      "platform_utility": 0.200393,
+      "seller_utilities": [
+        -0.006502,
+        -0.019614,
+        -0.001946
+      ],
+      "platform_revenue": 0.232332,
+      "gain": 0.8979
+    },
+    {
+      "round_index": 41,
+      "buyer_id": "buyer_42",
+      "price": 1.05,
+      "bid": 1.1327,
+      "buyer_utility": 0.596883,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.021348,
+        -0.019998,
+        0.024016
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 42,
+      "buyer_id": "buyer_43",
+      "price": 1.05,
+      "bid": 1.0003,
+      "buyer_utility": 0.510524,
+      "platform_utility": 0.389467,
+      "seller_utilities": [
+        0.018291,
+        -0.019994,
+        0.016584
+      ],
+      "platform_revenue": 0.464348,
+      "gain": 0.9746
+    },
+    {
+      "round_index": 43,
+      "buyer_id": "buyer_44",
+      "price": 1.05,
+      "bid": 0.6124,
+      "buyer_utility": 0.373733,
+      "platform_utility": 0.135402,
+      "seller_utilities": [
+        -0.013088,
+        -0.019748,
+        -0.008724
+      ],
+      "platform_revenue": 0.153843,
+      "gain": 0.8615
+    },
+    {
+      "round_index": 44,
+      "buyer_id": "buyer_45",
+      "price": 1.05,
+      "bid": 1.1323,
+      "buyer_utility": 0.596472,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.026683,
+        -0.019998,
+        0.01868
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 45,
+      "buyer_id": "buyer_46",
+      "price": 1.05,
+      "bid": 1.1048,
+      "buyer_utility": 0.569465,
+      "platform_utility": 0.430312,
+      "seller_utilities": [
+        0.01868,
+        -0.019998,
+        0.026683
+      ],
+      "platform_revenue": 0.515678,
+      "gain": 0.9822
+    },
+    {
+      "round_index": 46,
+      "buyer_id": "buyer_47",
+      "price": 1.05,
+      "bid": 0.6875,
+      "buyer_utility": 0.405192,
+      "platform_utility": 0.171856,
+      "seller_utilities": [
+        -0.00689,
+        -0.019968,
+        -0.00779
+      ],
+      "platform_revenue": 0.197208,
+      "gain": 0.8762
+    },
+    {
+      "round_index": 47,
+      "buyer_id": "buyer_48",
+      "price": 1.05,
+      "bid": 0.5883,
+      "buyer_utility": 0.358713,
+      "platform_utility": 0.123392,
+      "seller_utilities": [
+        -0.011572,
+        -0.019973,
+        -0.012239
+      ],
+      "platform_revenue": 0.139608,
+      "gain": 0.847
+    },
+    {
+      "round_index": 48,
+      "buyer_id": "buyer_49",
+      "price": 1.05,
+      "bid": 0.9825,
+      "buyer_utility": 0.509393,
+      "platform_utility": 0.375016,
+      "seller_utilities": [
+        0.008075,
+        -0.019974,
+        0.024735
+      ],
+      "platform_revenue": 0.447852,
+      "gain": 0.9743
+    },
+    {
+      "round_index": 49,
+      "buyer_id": "buyer_50",
+      "price": 1.05,
+      "bid": 0.4398,
+      "buyer_utility": 0.285648,
+      "platform_utility": 0.067457,
+      "seller_utilities": [
+        -0.015735,
+        -0.019974,
+        -0.016088
+      ],
+      "platform_revenue": 0.07566,
+      "gain": 0.8216
+    }
+  ],
+  "final_reward": {
+    "轮次": 50,
+    "买家ID": "buyer_50",
+    "价格": 1.05,
+    "报价": 0.4398,
+    "买家效用": 0.285648,
+    "平台效用": 0.067457,
+    "卖家效用": [
+      -0.015735,
+      -0.019974,
+      -0.016088
+    ],
+    "平台收入": 0.07566,
+    "增益": 0.8216
+  },
+  "summary": {
+    "总轮次": 50,
+    "平台总效用": 12.990473,
+    "买家总效用列表": [
+      1.005753,
+      0.432214,
+      0.622344,
+      0.52362,
+      0.257207,
+      0.73729,
+      0.536513,
+      0.551097,
+      0.272536,
+      0.437321,
+      0.398919,
+      0.689299,
+      0.510048,
+      0.587143,
+      0.435134,
+      0.329099,
+      0.470724,
+      0.236931,
+      0.591926,
+      0.493781,
+      0.523619,
+      0.392405,
+      0.732452,
+      0.656252,
+      0.543553,
+      0.318649,
+      0.434909,
+      0.227112,
+      0.284856,
+      0.509846,
+      0.515702,
+      0.72932,
+      0.382278,
+      0.39836,
+      0.441825,
+      0.315036,
+      0.289622,
+      0.440265,
+      0.330601,
+      0.505593,
+      0.429535,
+      0.596883,
+      0.510524,
+      0.373733,
+      0.596472,
+      0.569465,
+      0.405192,
+      0.358713,
+      0.509393,
+      0.285648
+    ],
+    "买家平均效用": 0.474534,
+    "卖家总效用列表": [
+      0.1951,
+      -0.996824,
+      0.160514
+    ]
+  }
+}

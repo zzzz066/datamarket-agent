@@ -1,0 +1,5 @@
+﻿mode,reference_mode,rounds,platform_utility,platform_baseline,platform_gap,buyer_average_utility,buyer_average_baseline,buyer_average_gap,pass_epsilon
+all_rule,all_rule,50,12.961287,12.961287,0.0,0.475263,0.475263,0.0,True
+seller_agent,all_rule,50,11.850918,12.961287,1.1103690000000004,0.526755,0.475263,-0.05149199999999998,False
+buyer_agent,all_rule,50,12.586531,12.961287,0.37475599999999964,0.481758,0.475263,-0.0064950000000000285,False
+both_agent,all_rule,50,10.775767,12.961287,2.1855200000000004,0.558991,0.475263,-0.08372800000000002,False

@@ -94,6 +94,31 @@ def load_agent(spec: str | None) -> Any:
     return obj
 
 
+def configure_agent(
+    agent: Any,
+    *,
+    prompt_profile: str | None = None,
+    model: str | None = None,
+    temperature: float | None = None,
+) -> Any:
+    """Apply optional CLI overrides to an already-created Agent.
+
+    This keeps the loader compatible with teammate-defined agents: unsupported
+    fields are ignored, while LLMAgent-style objects can receive profile/model
+    settings without requiring constructor arguments from the CLI.
+    """
+
+    if agent is None:
+        return None
+    if prompt_profile is not None and hasattr(agent, "prompt_profile"):
+        setattr(agent, "prompt_profile", prompt_profile)
+    if model is not None and hasattr(agent, "model"):
+        setattr(agent, "model", model)
+    if temperature is not None and hasattr(agent, "temperature"):
+        setattr(agent, "temperature", float(temperature))
+    return agent
+
+
 def build_default_sellers(sample_count: int = 80) -> tuple[list[Seller], np.ndarray]:
     """构造默认卖家数据池，并返回预测目标 y。
 
@@ -171,6 +196,30 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seller-agent", type=str, default=None)
     parser.add_argument("--buyer-agent", type=str, default=None)
     parser.add_argument(
+        "--seller-profile",
+        type=str,
+        default=None,
+        help="Override seller/platform Agent prompt_profile, e.g. revenue_max.",
+    )
+    parser.add_argument(
+        "--buyer-profile",
+        type=str,
+        default=None,
+        help="Override buyer Agent prompt_profile, e.g. shade.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Override model name for both seller and buyer LLM agents, e.g. gpt-4o-mini.",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="Override LLM sampling temperature for both seller and buyer agents.",
+    )
+    parser.add_argument(
         "--expose-mwu-to-seller-agent",
         action="store_true",
         help="默认不向平台/卖方定价侧 Agent 暴露 MWU；设置该参数后才暴露。",
@@ -205,8 +254,18 @@ def main() -> None:
         mu_low=args.mu_low,
         mu_high=args.mu_high,
     )
-    seller_agent = load_agent(args.seller_agent)
-    buyer_agent = load_agent(args.buyer_agent)
+    seller_agent = configure_agent(
+        load_agent(args.seller_agent),
+        prompt_profile=args.seller_profile,
+        model=args.model,
+        temperature=args.temperature,
+    )
+    buyer_agent = configure_agent(
+        load_agent(args.buyer_agent),
+        prompt_profile=args.buyer_profile,
+        model=args.model,
+        temperature=args.temperature,
+    )
 
     results = run_four_mode_suite(
         sellers,
